@@ -1,0 +1,12 @@
+riscv-formal on the core before the misaligned-target fix (formal/as_found/rv32i_core.sv), BP_MODE=0 FWD_PRECOMP=1
+BP_MODE=0 FWD_PRECOMP=1 : 43 checks, 35 PASS, 8 FAIL
+failing checks:
+  insn_beq_ch0  (FAIL 0 15)
+  insn_bge_ch0  (FAIL 0 24)
+  insn_bgeu_ch0  (FAIL 0 23)
+  insn_blt_ch0  (FAIL 0 26)
+  insn_bltu_ch0  (FAIL 0 24)
+  insn_bne_ch0  (FAIL 0 21)
+  insn_jal_ch0  (FAIL 0 21)
+  insn_jalr_ch0  (FAIL 0 17)
+failing assertion: rvfi_insn_check.sv line 196, assert(spec_trap == trap): the specification says the transfer traps, the core did not

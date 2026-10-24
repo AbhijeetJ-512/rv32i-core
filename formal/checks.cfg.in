@@ -1,0 +1,35 @@
+# riscv-formal configuration for rv32i_5stage_core (generated per variant by run_formal.sh; @BP@ and @FWD@ are substituted)
+[options]
+isa rv32i
+solver z3
+
+[depth]
+insn            12
+reg        5    14
+pc_fwd     5    14
+pc_bwd     5    14
+unique     1  5 14
+causal     5    14
+ill             12
+
+[sort]
+reg_ch0
+insn_[ls][bhw]u?_ch0
+
+[defines]
+`define RISCV_FORMAL_ALIGNED_MEM
+`define RV32I_BP_MODE @BP@
+`define RV32I_FWD_PRECOMP @FWD@
+
+[script-defines]
+verilog_defaults -add -I @ROOT@/rtl
+
+[verilog-files]
+@ROOT@/formal/wrapper.sv
+@ROOT@/rtl/rv32i_alu.sv
+@ROOT@/rtl/rv32i_branch.sv
+@ROOT@/rtl/rv32i_decode.sv
+@ROOT@/rtl/rv32i_hazard.sv
+@ROOT@/rtl/rv32i_lsu.sv
+@ROOT@/rtl/rv32i_regfile.sv
+@ROOT@/rtl/rv32i_core.sv
