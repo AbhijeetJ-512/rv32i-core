@@ -1,0 +1,11 @@
+# simulator builds, coverage data and the mutation runs all land in build/
+build/
+__pycache__/
+*.pyc
+
+# routed OpenROAD databases and per-run dumps; `make pnr` regenerates them
+results/pnr/*/*.db
+results/pnr/*/*.def
+results/pnr/*/*.spef
+results/pnr/*/*.route_guide
+results/pnr/*/antenna_detail.rpt
