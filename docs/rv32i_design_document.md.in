@@ -2,24 +2,24 @@
 
 ### A.1 Purpose
 
-`rv32i_5stage_core` is a 5-stage in-order RV32I processor core written in SystemVerilog. It was built to demonstrate processor
-microarchitecture in the way a design team would have to defend it: every architectural effect of every retired instruction is checked
-against an independent instruction-set simulator, the pipeline-control rules are written down as assertions, the test environment is
-itself tested by injecting deliberate bugs, and the clock period and cycle counts behind every performance statement come from tool
-reports that are checked in next to the design.
+`rv32i_5stage_core` is a 5-stage, in-order RV32I processor core written in SystemVerilog. I wanted a core I could defend the way a
+design team would have to: every architectural effect of every retired instruction is checked against an instruction-set simulator I
+wrote separately, the pipeline-control rules are written down as assertions, the test environment is itself tested by putting
+deliberate bugs into the RTL, and the clock periods and cycle counts behind the performance figures come from tool reports kept next
+to the design.
 
 ### A.2 Problem statement and motivation
 
-A pipelined core is easy to get *almost* right. Forwarding, the load-use stall, branch flushing and trap handling interact, and a core can
-pass a few hand-written programs while carrying bugs that appear only for particular register-dependence distances or when a branch sits
-behind a load. The motivation of this project is therefore twofold:
+A pipelined core is easy to get almost right. Forwarding, the load-use stall, branch flushing and trap handling all interact, and a
+core can pass a handful of hand-written programs while still hiding bugs that only show up at one particular register-dependence
+distance, or when a branch sits right behind a load. So I set myself two goals:
 
-1. design a core whose hazard and control rules are small enough to state exactly; and
-2. build a verification environment strong enough that a deliberately broken version of each rule is *detected* - and prove it by
-   measuring how many injected bugs are caught and by which layer.
+1. keep the hazard and control rules small enough that I can state them exactly, and
+2. build a verification environment that notices when any one of those rules is broken, and show that it does by counting how many
+   injected bugs it catches and which layer catches them.
 
-A second motivation is reproducibility: every number in this document is produced by a command in the repository and quoted from a
-result file, and anything that was not measured says so.
+I also wanted the work to be reproducible. Every number in this document comes from a command in the repository and is quoted from a
+result file, and where I didn't measure something I say so.
 
 ### A.3 Scope and requirements
 
@@ -34,24 +34,25 @@ result file, and anything that was not measured says so.
 | R7 | Measure CPI, minimum clock period and area; compare against a single-cycle core built from the same blocks | measured (section H) |
 | R8 | Demonstrate that the verification environment can fail: injected-bug campaign | measured (section G) |
 
-Out of scope, by decision: CSRs and interrupts, the M and C extensions, privilege modes, caches and bus protocols, wait states, and unbounded formal
-proofs (the riscv-formal checks in section G.7 are bounded). Section I lists these as limitations.
+I left some things out on purpose: CSRs and interrupts, the M and C extensions, privilege modes, caches and bus protocols, wait states,
+and unbounded formal proofs (the riscv-formal checks in section G.7 are bounded). Section I lists them as limitations.
 
 ### A.4 Target application and concepts exercised
 
-The core is a teaching-and-portfolio class design: it fits an embedded controller that runs integer code out of tightly coupled
-memories. The engineering concepts it exercises are pipeline hazards (RAW, load-use, control), operand forwarding, write-first
-register-file bypass, static branch prediction, precise stop-on-trap behaviour, byte-lane handling in the load/store unit, retirement
-tracing, lock-step co-simulation, constrained-random stimulus, assertion-based verification, coverage closure, mutation analysis,
-logic synthesis, static timing analysis and critical-path-driven optimisation.
+The core would suit an embedded controller that runs integer code out of tightly coupled memories. Building it meant dealing with
+pipeline hazards (RAW, load-use and control), operand forwarding, a write-first register-file bypass, static branch prediction,
+precise stop-on-trap behaviour and byte-lane handling in the load/store unit. Verifying it meant retirement tracing, lock-step
+co-simulation, constrained-random stimulus, assertions, coverage closure and mutation analysis. On the implementation side it went
+through logic synthesis and static timing analysis, and one design change was driven directly by the critical path.
 
 ### A.5 Key features and measurable objectives
 
-- All 37 RV32I instructions, 5-stage pipeline, steady-state CPI of 1.0 for hazard-free code.
-- Two control-hazard policies selected by `BP_MODE`, two forwarding-select implementations selected by `FWD_PRECOMP`.
-- One RVFI-style retirement port, removable by a parameter (`RVFI_EN=0`) so the synthesised core carries no verification hardware.
+- All 37 RV32I instructions in a 5-stage pipeline, with a steady-state CPI of 1.0 on code without hazards.
+- Two control-hazard policies selected by `BP_MODE`, and two ways of computing the forwarding selects, selected by `FWD_PRECOMP`.
+- A retirement-trace port in the style of RVFI that a parameter (`RVFI_EN=0`) removes, so the synthesised core carries no
+  verification hardware.
 - Objective O1: every directed test, benchmark and random program matches the ISS instruction for instruction (pass/fail, section G).
-- Objective O2: every injected bug is caught, and every assertion is shown to fire in at least one injected-bug run (section G).
+- Objective O2: every injected bug is caught, and every assertion fires in at least one injected-bug run (section G).
 - Objective O3: a measured CPI, minimum period and area for each configuration, and a measured execution-time comparison with a
   single-cycle core (section H).
 
@@ -61,13 +62,13 @@ logic synthesis, static timing analysis and critical-path-driven optimisation.
 
 ### B.1 Overview
 
-The datapath follows the classic five stages. Instructions flow IF -> ID -> EX -> MEM -> WB through four pipeline registers (IF/ID, ID/EX,
-EX/MEM, MEM/WB). Each pipeline register carries a *valid* bit; a bubble is a stage with `valid = 0` and every side-effect flag cleared, so a
-bubble can never write a register, write memory, trigger a hazard or redirect the fetch.
+The datapath is the classic five stages. Instructions go IF -> ID -> EX -> MEM -> WB through four pipeline registers (IF/ID, ID/EX,
+EX/MEM and MEM/WB). Each pipeline register has a valid bit. A bubble is simply a stage with `valid = 0` and every side-effect flag
+cleared, so it can never write a register, write memory, cause a hazard or redirect the fetch.
 
-The core has no knowledge of memory timing: the instruction port is a combinational read (`imem_addr` -> `imem_rdata`) and the data port is a
-combinational read with a synchronous, byte-strobed write. Both memories live in the testbench or the surrounding system. The architecture
-diagram is in section C; the block descriptions below refer to it.
+The core knows nothing about memory timing. The instruction port is a combinational read (`imem_addr` -> `imem_rdata`), and the data
+port is a combinational read with a synchronous, byte-strobed write. Both memories live in the testbench, or in whatever system the
+core is placed in. The architecture diagram is in section C, and the module descriptions below refer to it.
 
 ### B.2 Modules and responsibilities
 
@@ -86,7 +87,7 @@ diagram is in section C; the block descriptions below refer to it.
 
 ### B.3 Interfaces
 
-`rv32i_core` ports (all signals are on the single clock `clk`; `rst_n` is a synchronous active-low reset):
+Every `rv32i_core` signal is on the single clock `clk`, and `rst_n` is a synchronous active-low reset:
 
 | Signal | Dir | Width | Meaning |
 |---|---|---:|---|
@@ -105,16 +106,18 @@ Parameters: `RESET_PC` (default 0), `BP_MODE` (0 or 1), `FWD_PRECOMP` (0 or 1), 
 
 ### B.4 Data paths, control paths and pipeline registers
 
-**Data path.** `imem_rdata` -> IF/ID -> decode -> (register read) -> ID/EX -> forwarding muxes -> ALU -> EX/MEM -> load/store unit and `dmem` ->
-MEM/WB -> write-back select -> register file. Operand A of the ALU is `rs1`, the PC (AUIPC) or zero (LUI); operand B is `rs2` or the
-immediate. JAL and JALR write `pc+4` instead of the ALU result.
+**Data path.** `imem_rdata` -> IF/ID -> decode -> (register read) -> ID/EX -> forwarding muxes -> ALU -> EX/MEM -> load/store unit and
+`dmem` -> MEM/WB -> write-back select -> register file. Operand A of the ALU is `rs1`, the PC (for AUIPC) or zero (for LUI), and operand
+B is `rs2` or the immediate. JAL and JALR write `pc+4` instead of the ALU result.
 
 **Forwarding path.** `alu_result_m` (EX/MEM) and `wb_data_w` (MEM/WB) feed the two forwarding muxes in front of the ALU and the branch
-comparator. A load in MEM is never a forwarding source (its data is not ready); the load-use stall guarantees no consumer is ever in EX behind it.
+comparator. A load in MEM is never used as a forwarding source, because its data isn't ready yet; the load-use stall makes sure no
+consumer is ever in EX right behind it.
 
-**Control path.** `stall_d` (hazard unit) holds the PC and IF/ID and inserts a bubble into ID/EX. `redirect_ex` (EX) loads the PC from
-`target_ex` and flushes IF/ID and ID/EX. `redirect_id` (ID, `BP_MODE=1`) loads the PC from `target_id` and flushes IF/ID. `trap_ex` and
-`trap_mem` squash younger instructions and set the sticky `halted` flag, after which no new instruction enters the pipeline.
+**Control path.** `stall_d` from the hazard unit holds the PC and IF/ID and puts a bubble into ID/EX. `redirect_ex` (from EX) loads the
+PC from `target_ex` and flushes IF/ID and ID/EX. `redirect_id` (from ID, only with `BP_MODE=1`) loads the PC from `target_id` and
+flushes IF/ID. `trap_ex` and `trap_mem` squash the younger instructions and set the sticky `halted` flag, and after that no new
+instruction enters the pipeline.
 
 **Pipeline registers.**
 
@@ -129,23 +132,25 @@ With `RVFI_EN=1` the instruction word, next PC, source values, memory records an
 
 ### B.5 State machines
 
-The core has no explicit FSM; its only control state is the per-stage valid bits and the sticky `halted` flag. The stall/flush behaviour
-that an FSM would encode is a combinational function of the stage contents (section E.3), which is what makes it expressible as
-assertions (section G.4).
+There's no explicit FSM. The only control state is the valid bit of each stage and the sticky `halted` flag. The stall and flush
+behaviour that an FSM would normally hold is a combinational function of what's in each stage (section E.3), and that is what makes it
+possible to write it down as assertions (section G.4).
 
 ---
 
 ## C. Draw.io architecture diagram
 
-The diagram below is generated from one specification by `_tools/dgm.py`, which writes the editable draw.io file and the images from the
-same objects so they cannot disagree. It shows the five stages, the pipeline registers, the data flow (blue), the control flow
-(orange, dashed), the two forwarding paths that return to the EX stage, and the register-write loop from WB to the register file.
+The diagram is generated from a single specification by `docs/diagrams/make_diagrams.py`, using `dgm.py`, a small drawing helper from
+my portfolio tools that isn't part of this repository. It writes the editable draw.io file and the images from the same objects, so the
+two can't drift apart. The diagram shows the five stages, the pipeline registers, the data flow in blue, the control flow in dashed
+orange, the two forwarding paths back into EX, and the register-write loop from WB to the register file.
 
 ![Figure C.1 - RV32I pipelined core: microarchitecture (data flow solid blue, control flow dashed orange)](diagrams/rv32i_architecture.png)
 
-Diagram files (in `docs/diagrams/`): `rv32i_architecture.drawio` (editable source, open with diagrams.net or draw.io desktop),
-`rv32i_architecture.png` (2800 px export), `rv32i_architecture.svg`, plus `rv32i_flowchart.*` and `rv32i_pipeline_timing.*`. The images are
-rendered by `dgm.py` (matplotlib) with the same geometry as the `.drawio` file; they are not exports from the draw.io application.
+The diagram files are in `docs/diagrams/`: `rv32i_architecture.drawio` (the editable source; it opens in diagrams.net or the draw.io
+desktop app), `rv32i_architecture.png` (a 2800 px export) and `rv32i_architecture.svg`, plus `rv32i_flowchart.*` and
+`rv32i_pipeline_timing.*`. The images are drawn with matplotlib using the same geometry as the `.drawio` file, so they aren't exports
+from the draw.io application.
 
 ---
 
@@ -155,20 +160,20 @@ rendered by `dgm.py` (matplotlib) with the same geometry as the `.drawio` file; 
 
 ![Figure D.1 - Life of one instruction: reset, fetch, decode, hazard check, execute, redirect, trap, memory, write-back](diagrams/rv32i_flowchart.png)
 
-Reading the flowchart: after reset (`pc_f` loaded with `RESET_PC`, valid bits cleared, `halted` cleared) the core fetches continuously. In ID an
-ECALL, EBREAK or illegal encoding is marked as a trap (it has no effect of its own), and a load-use hazard stalls the instruction for one cycle.
-EX resolves control transfers and acts on a marked trap; MEM performs the data access unless the address is misaligned; WB writes the register
-and emits the retirement record. The exceptional paths (trap in EX, misaligned access in MEM) end in "core stopped": older instructions drain and
-retire first, younger ones are squashed.
+After reset, `pc_f` is loaded with `RESET_PC`, the valid bits and `halted` are cleared, and the core fetches continuously. In ID, an
+ECALL, EBREAK or illegal encoding is marked as a trap (it does nothing by itself), and a load-use hazard holds the instruction for one
+cycle. EX resolves control transfers and acts on a marked trap, MEM does the data access unless the address is misaligned, and WB
+writes the register and emits the retirement record. The two exceptional paths, a trap in EX and a misaligned access in MEM, end with
+the core stopped: older instructions drain and retire first, and younger ones are squashed.
 
 ### D.2 Hazard timing example
 
 ![Figure D.2 - Forwarding, a load-use stall and a taken-branch flush, cycle by cycle (BP_MODE=0)](diagrams/rv32i_pipeline_timing.png)
 
-The example executes `lw x1,0(x2); add x3,x1,x4; sub x5,x3,x6; beq x5,x7,T; or; and; ...` In cycle 3 the load is in EX and `add` (in ID) needs
-x1, so the PC and IF/ID are held for a cycle and a bubble enters EX. In cycle 5 the load is in WB when `add` reaches EX and x1 is forwarded from
-WB. `sub` and `beq` take their operands from MEM. In cycle 7 `beq` resolves as taken, the two younger instructions are squashed, and `xor` at the
-target is fetched in cycle 8.
+The example runs `lw x1,0(x2); add x3,x1,x4; sub x5,x3,x6; beq x5,x7,T; or; and; ...`. In cycle 3 the load is in EX and `add`, in ID,
+needs x1, so the PC and IF/ID hold for a cycle and a bubble goes into EX. In cycle 5 the load is in WB when `add` reaches EX, and x1 is
+forwarded from WB. `sub` and `beq` get their operands from MEM. In cycle 7 `beq` resolves as taken, the two younger instructions are
+squashed, and `xor` at the target is fetched in cycle 8.
 
 ---
 
@@ -176,31 +181,36 @@ target is fetched in cycle 8.
 
 ### E.1 Step-by-step operation
 
-1. **Fetch.** `imem_addr = pc_f`. At the clock edge IF/ID captures `{pc, instruction}` unless the PC and IF/ID are being held (stall) or flushed.
-2. **Decode.** `rv32i_decode` extracts `rs1`, `rs2`, `rd`, the immediate (I/S/B/U/J forms) and the control flags. The register file is read in the
-   same cycle; a write in the same cycle to the register being read is bypassed (write-first), which makes the three-instructions-apart RAW distance
-   free.
-3. **Hazard check.** If the instruction in EX is a load whose destination equals a register this instruction reads, the instruction stalls one cycle.
-4. **Execute.** The two operands pass through the forwarding muxes, the ALU computes (or the branch comparator decides), and the target adders compute
-   `pc+imm` and, for JALR, `(rs1+imm) & ~1`. Control transfers redirect the fetch according to `BP_MODE`.
-5. **Memory.** Loads and stores use `rv32i_lsu`: stores drive byte strobes and a lane-replicated word; loads select the addressed lane and extend it.
+1. **Fetch.** `imem_addr = pc_f`. On the clock edge IF/ID captures `{pc, instruction}` unless the PC and IF/ID are held for a stall
+   or flushed.
+2. **Decode.** `rv32i_decode` pulls out `rs1`, `rs2`, `rd`, the immediate (I, S, B, U or J form) and the control flags. The register
+   file is read in the same cycle, and a write in that cycle to a register being read is passed straight through (write-first). That
+   makes a RAW dependence three instructions apart free.
+3. **Hazard check.** If the instruction in EX is a load whose destination is a register this instruction reads, this instruction
+   stalls for one cycle.
+4. **Execute.** Both operands go through the forwarding muxes, the ALU computes the result (or the branch comparator decides), and the
+   target adders compute `pc+imm` and, for JALR, `(rs1+imm) & ~1`. Control transfers redirect the fetch according to `BP_MODE`.
+5. **Memory.** Loads and stores go through `rv32i_lsu`. Stores drive byte strobes and a word with the data copied across its lanes,
+   and loads select the addressed lane and extend it.
 6. **Write-back.** The selected value is written to `rd` (unless `rd = x0`) and the RVFI record is emitted.
 
 ### E.2 Forwarding, in detail
 
-Rule: for operand A (and identically B), the youngest older producer of `rs1` wins: if the instruction in MEM writes `rs1` (and `rs1 != x0`),
-forward `alu_result_m`; otherwise if the instruction in WB writes `rs1`, forward `wb_data_w`; otherwise use the register-file value read in ID.
+The rule is the same for operand A and operand B: the youngest older producer of the register wins. If the instruction in MEM writes
+`rs1` (and `rs1 != x0`), forward `alu_result_m`. Otherwise, if the instruction in WB writes `rs1`, forward `wb_data_w`. Otherwise use the
+value read from the register file in ID.
 
-Two implementations of the same rule are provided:
+I implemented that rule in two ways:
 
-- `FWD_PRECOMP=0` compares `rs1_e/rs2_e` against `rd_m/rd_w` in EX. The compares and the priority logic sit on the path that continues through the
-  forwarding mux, the ALU or branch comparator and the redirect logic into the PC.
-- `FWD_PRECOMP=1` performs the comparison one stage earlier. When the instruction is in ID, the producer now in EX will be in MEM and the producer now
-  in MEM will be in WB when the instruction reaches EX, so the select can be computed from `rd_e`/`rd_m` and registered into ID/EX. EX then receives
-  the select from flops. A load-use stall inserts a bubble and the select is recomputed on the following cycle, when the load has advanced.
+- `FWD_PRECOMP=0` compares `rs1_e/rs2_e` with `rd_m/rd_w` in EX. The compares and the priority logic then sit on a path that carries on
+  through the forwarding mux, the ALU or branch comparator and the redirect logic into the PC.
+- `FWD_PRECOMP=1` does the comparison a stage earlier. While the instruction is in ID, the producer now in EX will be in MEM, and the
+  one now in MEM will be in WB, by the time the instruction reaches EX. So the select can be computed from `rd_e`/`rd_m` and registered
+  into ID/EX, and EX gets it straight from flops. A load-use stall puts in a bubble, and the select is recomputed on the next cycle,
+  once the load has moved on.
 
-The two are interchangeable by construction and by test: both pass every test, and the same assertions (written in terms of EX-stage register
-contents) hold for both.
+The two versions are interchangeable, by construction and in testing: both pass every test, and the same assertions, written in terms
+of the EX-stage register contents, hold for both.
 
 ### E.3 Stall, flush and redirect
 
@@ -213,38 +223,42 @@ contents) hold for both.
 | Taken branch, JAL or JALR whose target is not 4-byte aligned | EX (`misal_tgt_e`, folded into `trap_ex`) | no redirect, no link-register write, younger instructions squashed, `halted` set; a not-taken branch never traps. Found by the formal checks (G.7). With `BP_MODE=1` an ID redirect to a misaligned target is suppressed so that the PC never holds a misaligned value |
 | Misaligned load/store | MEM (`trap_mem`) | memory access suppressed, younger instructions squashed, `halted` set |
 
-Priority in the next-PC select: `halted` (hold) > `redirect_ex` > `stall_d` (hold) > `redirect_id` > `pc+4`. A load-use stall and an EX redirect cannot occur
-in the same cycle (the first needs a load in EX, the second a branch or jump); an assertion records that no consumer slips past the stall.
+The next-PC select uses this priority: `halted` (hold), then `redirect_ex`, then `stall_d` (hold), then `redirect_id`, then `pc+4`. A
+load-use stall and an EX redirect can't happen in the same cycle, because the first needs a load in EX and the second a branch or jump
+there, and an assertion checks that no consumer slips past the stall.
 
 ### E.4 Load/store unit
 
-For stores the unit replicates the byte or halfword across the word and asserts the matching strobes (byte: `0001 << addr[1:0]`; halfword: `0011` or
-`1100`; word: `1111`), so the memory only needs to honour the strobes. For loads it shifts the returned word right by `8 * addr[1:0]` and then
-sign- or zero-extends the byte or halfword. A halfword access at an odd address or a word access at a non-multiple-of-4 address is a *misaligned*
-access: it is not performed and the instruction traps.
+For stores the unit copies the byte or halfword across the whole word and sets the matching strobes (byte: `0001 << addr[1:0]`;
+halfword: `0011` or `1100`; word: `1111`), so the memory only has to honour the strobes. For loads it shifts the returned word right by
+`8 * addr[1:0]` and then sign- or zero-extends the byte or halfword. A halfword access at an odd address, or a word access at an address
+that isn't a multiple of 4, is misaligned: it isn't performed, and the instruction traps.
 
 ### E.5 Reset, latency, throughput, back-pressure and errors
 
-- **Reset.** Synchronous, active-low. `pc_f <- RESET_PC`; the valid bits of IF/ID, ID/EX, EX/MEM and MEM/WB are cleared; `halted` is cleared. The
-  register file is *not* reset by default (a reset would add a multiplexer per flop); programs initialise what they read.
-- **Latency.** The first instruction retires four cycles after reset is released (the pipeline fill): `cycles = 4 + instret + bubbles`.
-- **Throughput.** One instruction per cycle when there is no hazard. A load-use pair costs one bubble; a taken control transfer costs two bubbles
-  (`BP_MODE=0`) or one (a correctly predicted backward branch or JAL, `BP_MODE=1`); a misprediction costs two.
-- **Back-pressure.** There is none by design: the memories are assumed to respond in the same cycle. A real integration would add a global stall
-  (hold every stage while a memory is not ready); that is listed under future work.
-- **Errors.** The only error behaviour is stop-and-flag (`halted`, `rvfi_trap`, `rvfi_halt`).
+- **Reset.** Synchronous and active-low. `pc_f <- RESET_PC`, the valid bits of IF/ID, ID/EX, EX/MEM and MEM/WB are cleared, and
+  `halted` is cleared. The register file isn't reset by default, since that would add a multiplexer to every flop; programs initialise
+  what they read.
+- **Latency.** The first instruction retires four cycles after reset is released, while the pipeline fills, so
+  `cycles = 4 + instret + bubbles`.
+- **Throughput.** One instruction per cycle when there are no hazards. A load-use pair costs one bubble. A taken control transfer costs
+  two bubbles with `BP_MODE=0`, or one with `BP_MODE=1` when it's a correctly predicted backward branch or a JAL, and a misprediction
+  costs two.
+- **Back-pressure.** There isn't any, by design: the memories are assumed to answer in the same cycle. A real integration would need a
+  global stall that holds every stage while a memory isn't ready, and that is on the future-work list.
+- **Errors.** The only error behaviour is to stop and raise a flag (`halted`, `rvfi_trap`, `rvfi_halt`).
 
 ### E.6 Key design decisions and trade-offs
 
 | Decision | Alternatives | Reason / trade-off |
 |---|---|---|
-| Resolve branches in EX (policy 0) | resolve in ID with extra forwarding paths | EX has the forwarded operands already; ID resolution would need a comparator after a second forwarding network |
-| Static BTFN from ID (policy 1) | dynamic predictor / BTB | smallest change that removes a bubble on every loop iteration; measured benefit in section H |
-| Precomputed forwarding selects | keep compare in EX | takes the 5-bit compares and priority logic off the path that goes through the ALU/comparator into the PC; costs four flops and compare logic in ID |
-| Stop-on-trap | CSRs and a trap vector | keeps the architectural model small and precise; honest about what is not implemented |
-| RVFI port as a parameter | always present | lock-step checking needs it; PPA must not pay for it |
-| Registers not reset | reset all | area; programs initialise their registers and the ISS rejects programs that read an unwritten one |
-| Verilog-2005-friendly constructs (no structs/enums/packages) | SystemVerilog packages | the same source is read by Verilator 5.020 and Yosys 0.33 |
+| Resolve branches in EX (policy 0) | resolve in ID with extra forwarding paths | EX already has the forwarded operands; resolving in ID would need a comparator behind a second forwarding network |
+| Static BTFN from ID (policy 1) | a dynamic predictor or BTB | the smallest change that removes a bubble from every loop iteration; the measured benefit is in section H |
+| Precomputed forwarding selects | keep the compare in EX | moves the 5-bit compares and the priority logic off the path through the ALU or comparator into the PC, for the price of four flops and some compare logic in ID |
+| Stop on trap | CSRs and a trap vector | keeps the architectural model small and exact, without pretending to implement what isn't there |
+| RVFI port as a parameter | always present | lock-step checking needs it, but the area and timing figures shouldn't pay for it |
+| Registers not reset | reset all of them | saves area; programs initialise their registers, and the ISS rejects any program that reads a register before writing it |
+| Verilog-2005-friendly constructs (no structs, enums or packages) | SystemVerilog packages | the same source has to go through both Verilator 5.020 and Yosys 0.33 |
 
 ---
 
@@ -252,11 +266,12 @@ access: it is not performed and the instruction traps.
 
 ### F.1 Clocking and reset
 
-One clock domain, rising-edge flops, synchronous reset. There is no clock-domain crossing.
+One clock domain, rising-edge flops and a synchronous reset. There's no clock-domain crossing.
 
 ### F.2 Memory handshake
 
-There is no valid/ready handshake: a read request and its response are in the same cycle. The timing assumptions the surrounding system must meet:
+There's no valid/ready handshake: a read request and its response happen in the same cycle. These are the timing assumptions the
+surrounding system has to meet:
 
 | Port group | Assumption used for timing (constraints/rv32i.sdc) |
 |---|---|
@@ -264,18 +279,18 @@ There is no valid/ready handshake: a read request and its response are in the sa
 | `imem_addr`, `dmem_addr`, `dmem_re`, `dmem_we`, `dmem_wdata`, `halted` | must be stable 1.0 ns (0.5 ns for `halted`) before the next edge |
 | `rst_n` | arrives 0.5 ns after the edge, driven by a `buf_2` |
 
-These numbers are assumptions about the environment, identical for all configurations, and are stated again next to every timing result.
+They are assumptions about the environment, the same for every configuration, and I repeat them next to every timing result.
 
 ### F.3 Write timing and read-after-write through memory
 
-A store writes the memory at the end of its MEM cycle (strobes valid during the cycle). A later load of the same address therefore sees the new
-data because it is at least one stage behind; no store-to-load forwarding is needed. The testbench ignores writes while reset is asserted, because
-the core's flops hold unspecified values until the first reset edge.
+A store writes the memory at the end of its MEM cycle, with the strobes valid during that cycle. A later load from the same address is at
+least one stage behind, so it sees the new data and no store-to-load forwarding is needed. The testbench ignores writes while reset is
+asserted, because the core's flops hold unspecified values until the first reset edge.
 
 ### F.4 Supported conditions and limitations
 
-Aligned 4-byte instruction fetch only (a taken branch, JAL or JALR to a target that is not 4-byte aligned traps in EX, see F.3 and G.7); data accesses
-within the testbench's 64 KiB; no wait states; single hart.
+Instruction fetch has to be 4-byte aligned: a taken branch, JAL or JALR to a target that isn't 4-byte aligned traps in EX (see E.3 and
+G.7). Data accesses have to stay within the testbench's 64 KiB, there are no wait states, and there's a single hart.
 
 ---
 
@@ -294,14 +309,15 @@ within the testbench's 64 KiB; no wait states; single hart.
 
 ### G.2 Testbench architecture
 
-`tb_core` instantiates the core (or the single-cycle baseline), a unified memory (instruction and data ports see the same array), a trace writer and
-cycle counters. Programs are assembled by `tools/rvasm.py` into a hex image; the ISS `tools/rviss.py` runs the same image and writes its own trace;
-`tools/compare_trace.py` compares the two traces field by field (memory data only in the byte lanes the mask marks), and the runner compares the final
-memory images and reads the program's own verdict (register `a0`) from the dump. Each test also enables the bound assertions.
+`tb_core` instantiates the core (or the single-cycle baseline), a unified memory that both the instruction and the data port see, a
+trace writer and cycle counters. `tools/rvasm.py` assembles each program into a hex image, and the ISS `tools/rviss.py` runs the same
+image and writes its own trace. `tools/compare_trace.py` compares the two traces field by field (memory data only in the byte lanes the
+mask marks), and the runner then compares the final memory images and reads the program's own verdict from register `a0` in the dump.
+The bound assertions are on in every test.
 
 ### G.3 Directed and random tests
 
-Directed tests (`tools/gen_directed.py`, expected values computed in the generator):
+The directed tests come from `tools/gen_directed.py`, which also computes their expected values:
 
 | Test | What it exercises |
 |---|---|
@@ -315,17 +331,18 @@ Directed tests (`tools/gen_directed.py`, expected values computed in the generat
 | t08a-r | illegal encodings, CSR, misaligned loads/stores (memory must not change), EBREAK, ECALL squashing younger instructions, a trap behind a load-use stall; misaligned JAL / JALR / taken BEQ (forward and backward) targets (trap, no link write), a misaligned JALR right behind a load-use stall, and a not-taken branch with a misaligned offset (no trap) |
 | t09, t10 | FENCE and x0 behaviour; a backward branch whose operand comes straight from the preceding load (stall on a predicted-taken branch) |
 
-Benchmarks (`tools/gen_bench.py`, results checked against Python): Fibonacci, memcpy, bubble sort, sieve, bitwise CRC-32 (against `zlib.crc32`),
-linked-list walk, 6 x 6 matrix multiply with a software multiply and call/return.
+The benchmarks come from `tools/gen_bench.py`, and each result is checked against Python: Fibonacci, memcpy, bubble sort, sieve, a bitwise
+CRC-32 (checked against `zlib.crc32`), a linked-list walk, and a 6 x 6 matrix multiply that uses a software multiply and call/return.
 
-Constrained-random programs (`tools/rvgen.py`): the constraints are listed in the README (instruction mix, dependency bias, load-use bias, edge-value
-operands, forward branches over wrong-path filler, counted and memory-resident loops, JALR through computed addresses, rare trap endings).
+The constrained-random programs come from `tools/rvgen.py`. The README lists its constraints: the instruction mix, the dependency and
+load-use bias, edge-value operands, forward branches over wrong-path filler, counted and memory-resident loops, JALR through computed
+addresses and the occasional trap ending.
 
 {{include results/summary_tests.md}}
 
 ### G.4 Assertions and properties
 
-`verif/rv32i_checker.sv` is bound into the core and holds 48 labelled assertions. The groups:
+`verif/rv32i_checker.sv` is bound into the core and holds 48 labelled assertions, in these groups:
 
 - **Forwarding**: `a_fwd_{a,b}_{mem,wb}_{only,always}` and `a_fwd_{a,b}_none` state the rule in both directions for valid instructions.
 - **Load-use**: `a_stall_always` / `a_stall_only` (the stall is exactly the hazard), `a_stall_bubble`, `a_stall_holds_pc`, `a_stall_holds_id`,
@@ -336,7 +353,7 @@ operands, forward branches over wrong-path filler, counted and memory-resident l
 - **Side effects**: `a_rw_valid_m`, `a_mem_valid_m`, `a_we_only/always`, `a_re_only/always`, `a_store_strobe_lane`.
 - **Trace**: `a_x0_no_write`, `a_order_counts`, `a_trap_implies_halt`.
 
-Verilator 5.020 supports implication and `$past` but not `##` sequence delays or covergroups, so functional coverage is expressed as named
+Verilator 5.020 handles implication and `$past` but not `##` sequence delays or covergroups, so I wrote the functional coverage as named
 `cover property` points.
 
 ### G.5 Coverage
@@ -345,25 +362,25 @@ Verilator 5.020 supports implication and `$past` but not `##` sequence delays or
 
 ### G.6 Checking the checks: injected bugs
 
-`scripts/mutants.py` applies each of 73 one-line RTL bugs (listed in `verif/mutants.py`) to a copy of the RTL, builds it with and without the bound
-assertions, and runs the directed tests and 40 random programs against it. The campaign fails if any bug escapes every layer, if an assertion meant to
-trip does not, or if any assertion is never shown to fire.
+`scripts/mutants.py` applies each of 73 one-line RTL bugs (listed in `verif/mutants.py`) to a copy of the RTL, builds it with and without
+the bound assertions, and runs the directed tests and 40 random programs against it. The campaign fails if any bug gets past every layer,
+if an assertion that should trip doesn't, or if any assertion is never seen to fire.
 
 {{include results/summary_mutants.md}}
 
-What the campaign taught (kept because it is the most useful result of the project):
+This campaign taught me more than anything else in the project:
 
-- The first campaign exposed a stimulus gap: a load-use stall on a backward branch that `BP_MODE=1` predicts taken survived every test. A directed
-  test (`t10`) and a random-generator class (memory-resident loop counters) were added and the bug is now caught.
-- Several assertions caught bugs that no other layer sees at all (performance-only bugs such as a needless stall, and squash bugs whose only
-  victim is an instruction that never retires). They are marked "caught only by an assertion" in the result.
-- A cover point written as `$past(stall_d) && valid_e` was unreachable by construction (the instruction after a stall is a bubble); coverage
-  closure exposed it and it was corrected to `$past(stall_d, 2)`.
-- Of the 48 assertions, one (`a_no_id_redirect`, which says ID redirects do not exist in `BP_MODE=0`) is only violated by a redundant, not an
-  incorrect, redirect - it is a design-intent assertion rather than a functional one.
-
-- The formal checks (G.7) later found a defect that all of the above had missed, because no test program ever jumped to a misaligned target: the fix
-  came with six more injected bugs (M69 to M74), three assertions and six directed tests.
+- The first run showed a gap in the stimulus. A load-use stall on a backward branch that `BP_MODE=1` predicts taken survived every
+  test. I added a directed test (`t10`) and a class of random programs that keep their loop counters in memory, and that bug is caught
+  now.
+- Some bugs are caught only by an assertion and by no other layer: performance-only bugs such as an unnecessary stall, and squash bugs
+  whose only victim is an instruction that never retires. The result marks them as caught only by an assertion.
+- A cover point written as `$past(stall_d) && valid_e` could never be hit, because the instruction after a stall is always a bubble.
+  Coverage closure exposed it, and I changed it to `$past(stall_d, 2)`.
+- One of the 48 assertions, `a_no_id_redirect` (there are no ID redirects in `BP_MODE=0`), is only violated by a redirect that is
+  redundant rather than wrong, so it states design intent more than a functional requirement.
+- Later, the formal checks (G.7) found a defect that all of the above had missed, because no test program ever jumped to a misaligned
+  target. The fix came with six more injected bugs (M69 to M74), three assertions and six directed tests.
 
 ### G.6.1 Simulation commands and tools
 
@@ -373,31 +390,36 @@ make mutants    # the injected-bug campaign
 make formal     # riscv-formal bounded checks (G.7); needs SymbiYosys, z3 and a riscv-formal checkout under ../../_toolchain
 ```
 
-Requires Verilator (5.020 or newer), Python 3, GNU make; Yosys and OpenSTA for section H; SymbiYosys 0.33, z3 and riscv-formal for `make formal`.
+You need Verilator 5.020 or newer, Python 3 and GNU make; Yosys and OpenSTA for section H; and SymbiYosys 0.33, z3 and riscv-formal for
+`make formal`.
 
 ### G.7 Formal verification (riscv-formal, bounded)
 
-The core's RVFI port is wired to the riscv-formal harness (`formal/wrapper.sv`; instruction memory and load data are free inputs) and checked with
-SymbiYosys and z3 for all four `BP_MODE` x `FWD_PRECOMP` variants: one check per RV32I instruction (37), plus register-file consistency, PC
-consistency forward and backward, instruction uniqueness, causality and the illegal-instruction rule (6): 43 checks per variant.
+The core's RVFI port is connected to the riscv-formal harness (`formal/wrapper.sv`, with instruction memory and load data as free inputs)
+and checked with SymbiYosys and z3 for all four `BP_MODE` x `FWD_PRECOMP` variants. Each variant gets 43 checks: one per RV32I instruction
+(37), plus register-file consistency, PC consistency forward and backward, instruction uniqueness, causality and the illegal-instruction
+rule (6).
 
 {{include results/summary_formal.md}}
 
-**What the first run found.** On the core as it was, eight checks failed (the pre-fix core was run in one variant only, `BP_MODE=0` `FWD_PRECOMP=1`): all six conditional branches, JAL and JALR. The
-specification says a taken branch, JAL or JALR whose target is not 4-byte aligned (no C extension) raises instruction-address-misaligned; the core jumped
-there. The ISS rejected such programs and an assertion flagged a misaligned PC, but no test program ever produced one, so simulation never saw it. The
-fix is in EX (`misal_tgt_e`): the transfer traps, writes no link register and does not redirect. The ISS, the single-cycle baseline, the directed tests
-(`t08m` to `t08r`), the checker (`a_misal_traps`, `a_misal_only`, `a_trap_no_write`) and the mutant list (M69 to M74) were extended to match. The pre-fix core is
-kept in `formal/as_found/` and `formal/run_as_found.sh` reproduces the eight failures (`results/formal_as_found.txt`).
+**What the first run found.** On the core as it was, eight checks failed: all six conditional branches, JAL and JALR. (I ran the pre-fix
+core in one variant only, `BP_MODE=0` `FWD_PRECOMP=1`.) The specification says that, without the C extension, a taken branch, JAL or JALR
+whose target isn't 4-byte aligned raises an instruction-address-misaligned exception, and my core simply jumped there. The ISS rejected
+such programs and an assertion flagged a misaligned PC, but no test program ever produced one, so simulation never saw the problem. The
+fix is in EX (`misal_tgt_e`): the transfer traps, writes no link register and doesn't redirect. I extended the ISS, the single-cycle
+baseline, the directed tests (`t08m` to `t08r`), the checker (`a_misal_traps`, `a_misal_only`, `a_trap_no_write`) and the mutant list
+(M69 to M74) to match. The pre-fix core is kept in `formal/as_found/`, and `formal/run_as_found.sh` reproduces the eight failures
+(`results/formal_as_found.txt`).
 
-**What this is and is not.** Bounded model checking explores every input sequence up to the stated depth from reset; it is not an unbounded proof. Not run:
-liveness, the memory-bus checks, CSR checks (no CSRs), `reg` for registers other than x5, and checks for FENCE, ECALL and EBREAK (the riscv-formal
-instruction set has no check for them; they are covered by the directed tests and the ISS).
+**What this is and isn't.** Bounded model checking explores every input sequence up to the stated depth from reset, which isn't the same
+as an unbounded proof. I didn't run the liveness checks, the memory-bus checks, CSR checks (there are no CSRs), `reg` for registers other
+than x5, or checks for FENCE, ECALL and EBREAK. riscv-formal has no instruction check for those three; the directed tests and the ISS
+cover them.
 
 ### G.8 Known failures and gaps
 
-No test fails. Gaps: formal checking is bounded (G.7), no riscv-tests/arch-tests (no RISC-V toolchain), the single-cycle baseline is verified by
-lock-step but has no bound assertions or coverage of its own.
+No test fails. The gaps: the formal checks are bounded (G.7), riscv-tests and riscv-arch-test aren't run because there's no RISC-V
+toolchain here, and the single-cycle baseline is verified in lock-step but has no bound assertions or coverage of its own.
 
 ---
 
@@ -405,26 +427,27 @@ lock-step but has no bound assertions or coverage of its own.
 
 ### H.1 Method
 
-Yosys 0.33 maps the core (RVFI removed) to Sky130 HD; two mappings are compared: Yosys' default `abc -D` (no buffering) and a timing-driven ABC
-script (`scripts/abc_speed.script`: delay mapping, fan-out buffering, gate sizing). OpenSTA times each netlist with `constraints/rv32i.sdc`. The
-minimum period is `T_min = 10 ns - WNS(10 ns)` and is *verified* by re-running STA at +/-2 % of T_min. All figures are pre-layout (ideal clock, no
-wires), typical corner (`tt_025C_1v80`).
+Yosys 0.33 maps the core, with RVFI removed, to Sky130 HD. I compare two mappings: Yosys' default `abc -D`, which does no buffering, and a
+timing-driven ABC script (`scripts/abc_speed.script`: delay mapping, fan-out buffering and gate sizing). OpenSTA times each netlist with
+`constraints/rv32i.sdc`. The minimum period is `T_min = 10 ns - WNS(10 ns)`, and I check it by re-running STA at +/-2 % of T_min. All
+figures are pre-layout (ideal clock, no wires) at the typical corner (`tt_025C_1v80`).
 
 {{include results/ppa.md}}
 
 ### H.2 Critical paths
 
-- With `FWD_PRECOMP=0` the limiting path starts at the WB destination register, runs through the 5-bit compares and the forwarding select, the
-  forwarded operand into the branch comparator, and the redirect logic into the PC.
-- With `FWD_PRECOMP=1` the select comes from a flop. T_min falls accordingly (table above). The limiting path is then the forwarded operand through
-  the ALU/comparator and the redirect logic.
-- Limiting paths in the re-synthesised netlists (read from `build/ppa/*/timing.txt` and `synth.v`; start flop to end flop, Yosys names): `BP_MODE=0`
-  `FWD_PRECOMP=0`: `u_hazard.rd_w[0]` to `pc_d[10]`; `BP_MODE=1` `FWD_PRECOMP=0`: the same pair; `BP_MODE=0` `FWD_PRECOMP=1`: `fwd_b_r[2]` (the registered
-  forwarding select) to a flop named `u_decode.imm_j[17]` (a merged flop; not interpreted further); `BP_MODE=1` `FWD_PRECOMP=1`: `fwd_b_r[2]` to
-  `imem_addr[30]` (the PC register). The same configuration's T_min moved between RTL revisions by up to 8 % (6.024 to 5.549 ns) (`results/ppa_before_misaligned_fix.md`
-  against `results/ppa.md`), which is the mapping's sensitivity to small RTL changes, so small differences between rows are not conclusions.
-- Plain `abc -D` without buffering gives periods several times longer than the timing-driven mapping for the same RTL: the figure is dominated by
-  high-fan-out nets, not by the design. Every design conclusion uses the timing-driven rows.
+- With `FWD_PRECOMP=0` the limiting path starts at the WB destination register, goes through the 5-bit compares and the forwarding
+  select, takes the forwarded operand into the branch comparator, and runs through the redirect logic into the PC.
+- With `FWD_PRECOMP=1` the select comes from a flop, and T_min drops accordingly (see the table above). The limiting path is then the
+  forwarded operand through the ALU or comparator and the redirect logic.
+- The limiting paths in the re-synthesised netlists, read from `build/ppa/*/timing.txt` and `synth.v` (start flop to end flop, with Yosys
+  names), are: `BP_MODE=0` `FWD_PRECOMP=0`: `u_hazard.rd_w[0]` to `pc_d[10]`; `BP_MODE=1` `FWD_PRECOMP=0`: the same pair; `BP_MODE=0`
+  `FWD_PRECOMP=1`: `fwd_b_r[2]` (the registered forwarding select) to a flop named `u_decode.imm_j[17]` (a merged flop I didn't look into
+  further); `BP_MODE=1` `FWD_PRECOMP=1`: `fwd_b_r[2]` to `imem_addr[30]` (the PC register). The same configuration's T_min moved by up to
+  8 % between RTL revisions (6.024 to 5.549 ns, `results/ppa_before_misaligned_fix.md` against `results/ppa.md`). That shows how sensitive
+  the mapping is to small RTL changes, so I don't draw conclusions from small differences between rows.
+- Plain `abc -D` without buffering gives periods several times longer than the timing-driven mapping for the same RTL. That figure is
+  dominated by high-fan-out nets rather than by the design, so every design conclusion here uses the timing-driven rows.
 
 ### H.3 CPI and bubble sources
 
@@ -447,35 +470,36 @@ wires), typical corner (`tt_025C_1v80`).
 
 ### H.6 Place and route (OpenROAD)
 
-The `BP_MODE=1`, `FWD_PRECOMP=1` core (the fastest configuration in H.1) was placed and routed with OpenROAD on Sky130 HD at nine target clock periods
-(`pnr/`, `make pnr`). The flow is the one `alu_fifo` used (floorplan, global placement, repair, clock-tree synthesis, repair_timing, global and detailed
-routing, antenna repair, SPEF extraction, final STA on the extracted parasitics) with the same untuned settings. Every run was read back and checked by
-`pnr/pnr_report.py` before its numbers were used.
+I placed and routed the `BP_MODE=1`, `FWD_PRECOMP=1` core, the configuration with the shortest execution time in H.4, with OpenROAD on
+Sky130 HD at nine target clock periods (`pnr/`, `make pnr`). The flow is the one I used for `alu_fifo` (floorplan, global placement,
+repair, clock-tree synthesis, repair_timing, global and detailed routing, antenna repair, SPEF extraction and a final STA on the extracted
+parasitics), with the same settings, which I didn't tune for this design. `pnr/pnr_report.py` read back and checked every run before I
+used its numbers.
 
 {{include results/pnr.md}}
 
-What the table says and does not say:
+What the table says, and what it doesn't:
 
-- The routed design closes setup and hold with zero router DRC violations from 9.5 ns upward and not at any shorter target that was tried. The pre-layout
-  minimum period of the same configuration is 4.842 ns (ideal clock, no wires). The routed figure is therefore about twice the pre-layout one; how much of that
-  is clock-tree insertion delay and skew (about 1.2 to 1.4 ns of latency and 0.13 to 0.17 ns of skew in the clock reports), how much is wire load and how much is
-  the repair step's choices was **not decomposed**.
-- Results are not monotonic in the target period: the 8.0 ns run ended 0.303 ns short while the 8.4 ns run ended 0.538 ns short, and from 8.6 ns upward
-  `repair_timing` changed nothing, so those layouts are identical and only the period moves the slack. The 9.5 ns result is a tested value, not an optimum;
-  steps finer than those listed were not tried.
-- The shortest target (6.0 ns) also ends with a hold violation (-0.131 ns). Its worst hold path starts at the `rst_n` input, whose SDC input delay is 0.5 ns,
-  and ends at a flop whose clock arrives 1.33 ns after the clock port: the SDC gives inputs no clock-latency allowance, so this is partly an artefact of the
-  constraints and not a finding about the design.
-- Max-slew and max-capacitance violating pins remain in every routed run (61 and 5 in the 9.5 ns run, 9 of the 66 being antenna-diode pins; the worst slew is 0.398 ns
-  over the limit, on a net that drives mux select pins); they were reported, not fixed.
-- Only this one configuration was routed. The other three pipelined configurations and the single-cycle baseline were not, so no routed speed-up is
-  claimed: the speed-up in H.4 remains a pre-layout figure.
-- Signoff DRC and LVS are NOT RUN (Magic, KLayout and Netgen are not installed). "DRC" means the router's own count. Power is OpenSTA's default-activity
-  estimate for the extracted design, not a workload measurement.
-- Two of the first three runs stopped with an OpenROAD error (GRT-0183) in the antenna repair between global and detailed routing; the runs reported here skip
-  that step (`PNR_GRT_ANTENNA=0`), and the antenna repair after detailed routing still ran (0 antenna violations at the end). The logs of the failed runs are in
-  `results/pnr_grt_antenna/`. A mistake of my own is recorded too: one run was damaged by editing the flow script while OpenROAD was reading it, and
-  its log is in `results/pnr_aborted/`; it was rerun.
+- The routed design closes setup and hold with zero router DRC violations from 9.5 ns upward, and at none of the shorter targets I tried.
+  The pre-layout minimum period of the same configuration is 4.842 ns (ideal clock, no wires), so the routed figure is about twice the
+  pre-layout one. I didn't break down how much of that comes from clock-tree insertion delay and skew (the clock reports show about 1.2 to
+  1.4 ns of latency and 0.13 to 0.17 ns of skew), how much from wire load, and how much from the choices the repair step made.
+- The results aren't monotonic in the target period. The 8.0 ns run ended 0.303 ns short while the 8.4 ns run ended 0.538 ns short, and
+  from 8.6 ns upward `repair_timing` changed nothing, so those layouts are identical and only the period moves the slack. 9.5 ns is a value
+  I tested, not an optimum, and I didn't try steps finer than the ones listed.
+- The shortest target, 6.0 ns, also ends with a hold violation (-0.131 ns). Its worst hold path starts at the `rst_n` input, whose SDC
+  input delay is 0.5 ns, and ends at a flop whose clock arrives 1.33 ns after the clock port. The SDC gives inputs no allowance for clock
+  latency, so this is partly an artefact of the constraints rather than a problem in the design.
+- Every routed run still has max-slew and max-capacitance violations: 61 and 5 in the 9.5 ns run, 9 of the 66 being antenna-diode pins,
+  and the worst slew is 0.398 ns over the limit, on a net that drives mux select pins. I reported them but didn't fix them.
+- I only routed this one configuration. The other three pipelined configurations and the single-cycle baseline weren't routed, so I
+  don't claim a routed speed-up, and the speed-up in H.4 stays a pre-layout figure.
+- Signoff DRC and LVS were NOT RUN, because Magic, KLayout and Netgen aren't installed. "DRC" here means the router's own count, and the
+  power figure is OpenSTA's default-activity estimate for the extracted design, not a measurement on a workload.
+- Two of the first three runs stopped with an OpenROAD error (GRT-0183) in the antenna repair between global and detailed routing. The
+  runs reported here skip that step (`PNR_GRT_ANTENNA=0`); the antenna repair after detailed routing still ran, and there were 0 antenna
+  violations at the end. The logs of the failed runs are in `results/pnr_grt_antenna/`. I also damaged one run myself, by editing the flow
+  script while OpenROAD was still reading it. Its log is in `results/pnr_aborted/`, and I reran it.
 
 ---
 
@@ -483,42 +507,51 @@ What the table says and does not say:
 
 ### I.1 Summary
 
-The core implements all of RV32I, passes every directed test, benchmark and random program in lock-step with an independent ISS, satisfies all 48
-assertions, is closed on its cover points, has every one of its 73 injected bugs caught, and passes 172 of 172 bounded riscv-formal checks over its four
-configurations (G.7). The measured pipeline gain over the same-RTL single-cycle core is modest (the table in H.4): a pipelined core is only as fast
-as its critical path. With the forwarding compare in EX the pipeline measured 0.92x of the single-cycle baseline when first measured and 1.04x after the
-misaligned-target fix (`results/performance_before_misaligned_fix.md`, `results/performance.md`): not clearly better, and the change between the two runs
-came with a fix that added logic, so it is mapping variation. With the compare moved out of EX it measured 1.27x then 1.33x (`BP_MODE=0`) and 1.37x both times (`BP_MODE=1`).
+The core implements all of RV32I. It passes every directed test, benchmark and random program in lock-step with an independent ISS, all
+48 assertions hold, its cover points are closed, all 73 injected bugs are caught, and it passes 172 of 172 bounded riscv-formal checks
+across its four configurations (G.7). The measured gain of the pipeline over the single-cycle core built from the same RTL is modest (see
+the table in H.4), because a pipelined core is only as fast as its critical path. With the forwarding compare in EX, the pipeline came out
+at 0.92x of the single-cycle baseline when I first measured it and 1.04x after the misaligned-target fix
+(`results/performance_before_misaligned_fix.md`, `results/performance.md`). That isn't clearly better, and since the change between the
+two runs came with a fix that added logic, it's variation in the mapping. With the compare moved out of EX, the pipeline measured 1.27x
+and then 1.33x with `BP_MODE=0`, and 1.37x both times with `BP_MODE=1`.
 
 ### I.2 Most meaningful engineering outcomes
 
-1. A **measured** performance comparison, including the unflattering one: the straightforward pipeline did not clearly beat the baseline (0.92x, then
-   1.04x on re-synthesis); a critical-path-driven change gave 1.33x to 1.37x, and both variants are kept and verified.
-2. A **verification environment that can fail**, shown with an injected-bug campaign whose gaps were found and closed.
-3. An **independent reference model and assembler** built for the project, so no part of the evidence depends on a RISC-V toolchain.
+1. A measured performance comparison, including the result that doesn't flatter the design: the straightforward pipeline didn't clearly
+   beat the baseline (0.92x, then 1.04x after re-synthesis), while a change aimed at the critical path gave 1.33x to 1.37x. I kept and
+   verified both variants.
+2. A verification environment that can fail, shown with an injected-bug campaign whose gaps I found and closed.
+3. A reference model and an assembler written for the project, so none of the evidence depends on a RISC-V toolchain.
 
 ### I.3 Limitations
 
-No CSRs/interrupts/M/C; stop-on-trap; ideal memories without wait states; static prediction only; pre-layout timing
-only (one configuration routed, no signoff checks); formal checks are bounded, not proofs; the single-cycle comparison is optimistic for the baseline (section H).
+No CSRs, interrupts, or M and C extensions; the core stops on a trap; the memories are ideal, with no wait states; branch prediction is
+static only; timing is pre-layout apart from the one routed configuration, and there are no signoff checks; the formal checks are bounded,
+not proofs; and the single-cycle comparison is optimistic for the baseline (section H).
 
 ### I.4 Future improvements
 
-- A global stall for memory wait states, then an instruction cache and a data cache (the `mlc_cache_controller` project is the natural partner).
+- A global stall for memory wait states, followed by an instruction cache and a data cache (my `mlc_cache_controller` project would be the
+  natural partner).
 - Zicsr, machine-mode traps and interrupts, then the M extension (a pipelined multiplier and an iterative divider).
-- Dynamic branch prediction with a small BTB; measure it with the same benchmarks and the same cycle accounting.
-- Unbounded formal proofs (k-induction or PDR) for the riscv-formal properties, the liveness checks, and the riscv-arch-test suite once a RISC-V toolchain is available.
-- Route the other three pipelined configurations and the single-cycle baseline (the same flow), fix the remaining max-slew violations, and run signoff DRC / LVS when Magic, KLayout and Netgen are available.
+- Dynamic branch prediction with a small BTB, measured with the same benchmarks and the same cycle accounting.
+- Unbounded formal proofs (k-induction or PDR) of the riscv-formal properties, the liveness checks, and the riscv-arch-test suite once a
+  RISC-V toolchain is available.
+- Routing the other three pipelined configurations and the single-cycle baseline with the same flow, fixing the remaining max-slew
+  violations, and running signoff DRC and LVS once Magic, KLayout and Netgen are available.
 
 ### I.5 Interview talking points
 
-- Why the load-use stall exists and why a load in MEM is never a forwarding source; the assertion that records it.
-- Why MEM must beat WB in the forwarding priority, and the test (`t05`) and mutants (M03, M43) that prove it.
-- How precomputing forwarding selects in ID changes the critical path, what it costs (four flops), and the before/after numbers.
-- What a taken branch costs under each policy and how the cycle-accounting identity was used to check the counters (and why it is an inequality for `BP_MODE=1`).
-- How the lock-step trace works (RVFI subset) and why the memory lanes are compared under the byte mask.
-- Why the mutation campaign was worth running: the stalled predicted-taken-branch hole, the unreachable cover, and the assertion-only kills.
-- What is not claimed: no silicon frequency, no power, a lower-bound speed-up against an optimistic baseline.
+- Why the load-use stall exists, why a load in MEM is never a forwarding source, and the assertion that checks it.
+- Why MEM has to beat WB in the forwarding priority, and the test (`t05`) and mutants (M03, M43) that show it.
+- How precomputing the forwarding selects in ID changes the critical path, what it costs (four flops), and the numbers before and after.
+- What a taken branch costs under each policy, how I used the cycle-accounting identity to check the counters, and why it becomes an
+  inequality with `BP_MODE=1`.
+- How the lock-step trace works (an RVFI subset), and why the memory lanes are compared under the byte mask.
+- Why the mutation campaign was worth running: the hole around a stalled predicted-taken branch, the unreachable cover point, and the bugs
+  only an assertion caught.
+- What I don't claim: no silicon frequency, no power figure, and a speed-up that is a lower bound against an optimistic baseline.
 
 ---
 
@@ -559,5 +592,5 @@ make formal               # riscv-formal bounded checks (about 10 minutes; needs
 make pnr                  # OpenROAD place and route at nine target periods (about 40 minutes; needs make ppa first)
 ```
 
-Tools used for the reported results: Verilator 5.020, Yosys 0.33, OpenSTA, OpenROAD v2.0, SymbiYosys 0.33 with z3 and riscv-formal, Python 3.13. No source repository link is given because this portfolio
-folder has not been published.
+The reported results were produced with Verilator 5.020, Yosys 0.33, OpenSTA, OpenROAD v2.0, SymbiYosys 0.33 with z3 and riscv-formal,
+and Python 3.13. The source is at https://github.com/AbhijeetJ-512/rv32i-core.

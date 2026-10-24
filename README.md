@@ -1,86 +1,102 @@
 # rv32i_5stage_core
 
-A 5-stage in-order **RV32I** processor core in SystemVerilog, built to be *measured*: every instruction it retires is checked
-against an independent instruction-set simulator, the pipeline-control rules are written as bound assertions, the test
-environment itself is checked by injecting deliberate bugs, and the clock period and cycle counts behind every performance
-statement come from tool reports in `results/`.
+A 5-stage, in-order RV32I core in SystemVerilog. I built it so that anything I say about it can be checked. Every instruction it
+retires is compared against an instruction-set simulator I wrote separately from the RTL, the pipeline-control rules are written
+down as bound assertions, and I tested the test setup itself by putting bugs into the RTL on purpose and making sure something
+catches each one. The clock periods and cycle counts behind the performance numbers come from tool reports in `results/`.
 
-It replaces the author's earlier `RISC-V` repository with a complete RV32I implementation and a verification environment; no
-result from the earlier repository is reused here.
+It replaces my earlier `RISC-V` repository. That design didn't implement all of RV32I and its testbench didn't check any results,
+so I started again and nothing from it is reused here.
 
-**No measured result in this README is typed by hand.** The *Results* block is spliced in from `results/` by
-`scripts/readme_results.py`. Anything not measured says `NOT YET MEASURED` and the command that would measure it. Design
-parameters and assumptions in the prose (the 2.0 ns / 1.0 ns memory budget, ideal memories) are choices, not results.
+None of the numbers in the Results section are typed by hand. `scripts/readme_results.py` copies them in from `results/`, and
+anything I haven't measured says NOT YET MEASURED, with the command that would measure it. Values in the text such as the
+2.0 ns / 1.0 ns memory budget and the ideal memories are design choices and assumptions, not results.
 
 ## What it is
 
 | | |
 |---|---|
-| ISA | RV32I base: LUI AUIPC JAL JALR, 6 branches, 5 loads, 3 stores, 9 ALU-immediate, 10 register-register, FENCE (no-op), ECALL/EBREAK |
-| Pipeline | IF / ID / EX / MEM / WB, in order, single issue |
-| Hazards | full forwarding (MEM->EX, WB->EX), write-first register-file bypass, one-cycle load-use stall |
-| Control flow | `BP_MODE=0`: every jump/branch resolves in EX (2 bubbles when taken). `BP_MODE=1`: JAL and backward conditional branches redirect from ID (1 bubble, static BTFN), misprediction repaired from EX |
-| Memory interface | separate instruction and data ports, combinational read, byte-strobed write, **no wait states** (memories are outside the core) |
-| Traps | no CSRs, no vectors: ECALL, EBREAK, an illegal encoding a misaligned load/store or a taken branch/jump to a target that is not 4-byte aligned **stops the core** (`halted`), squashes younger instructions, and retires with a halt/trap flag |
-| Observability | `RVFI_EN=1` adds a retirement-trace port (a subset of the RISC-V Formal Interface); `RVFI_EN=0` removes it (the configuration synthesised) |
-| Baseline | `rv32i_core_1cyc.sv`: the same decoder, ALU, register file and load/store unit in a single-cycle core, for a measured comparison |
+| ISA | The RV32I base set: LUI, AUIPC, JAL, JALR, 6 branches, 5 loads, 3 stores, 9 ALU-immediate and 10 register-register instructions, FENCE (as a no-op), ECALL and EBREAK |
+| Pipeline | IF, ID, EX, MEM, WB; in order, one instruction per cycle |
+| Hazards | Full forwarding from MEM and WB into EX, a register file that passes a same-cycle write straight through, and a one-cycle stall for load-use |
+| Control flow | With `BP_MODE=0` every jump and branch resolves in EX (2 bubbles when taken). With `BP_MODE=1`, JAL and backward conditional branches redirect from ID (1 bubble, static backward-taken / forward-not-taken) and EX repairs a misprediction |
+| Memory interface | Separate instruction and data ports, combinational read, byte-strobed write and no wait states. The memories sit outside the core |
+| Traps | There are no CSRs and no trap vectors. ECALL, EBREAK, an illegal encoding, a misaligned load or store, or a taken branch or jump to a target that isn't 4-byte aligned stops the core (`halted`), squashes the younger instructions and retires with a halt/trap flag |
+| Observability | `RVFI_EN=1` adds a retirement-trace port, a subset of the RISC-V Formal Interface. `RVFI_EN=0` removes it, and that is the version I synthesise |
+| Baseline | `rv32i_core_1cyc.sv` puts the same decoder, ALU, register file and load/store unit into a single-cycle core, so the pipeline has something to be measured against |
 
-Parameters of `rv32i_core`: `RESET_PC`, `BP_MODE` (0/1), `FWD_PRECOMP` (1 = forwarding selects compared in ID and registered, 0 = compared
-in EX), `RVFI_EN`. Both `FWD_PRECOMP` values pass every test; they differ in clock period (see *Results*).
+`rv32i_core` takes four parameters: `RESET_PC`, `BP_MODE` (0 or 1), `FWD_PRECOMP` and `RVFI_EN`. With `FWD_PRECOMP=1` the
+forwarding selects are compared in ID and registered, with 0 they are compared in EX. Both settings pass every test; they only
+differ in clock period (see Results).
 
-## Architecture in one page
+## Architecture
 
 ![architecture](docs/diagrams/rv32i_architecture.png)
 
-- **IF**: `pc_f` drives `imem_addr`; next-PC priority is `halted` > EX redirect > load-use stall (hold) > ID redirect > `pc+4`.
-- **ID**: `rv32i_decode` (opcode, immediates, control, illegal/halt detection), `rv32i_regfile` (31 x 32, two read ports, write-first bypass),
-  `rv32i_hazard` (load-use detection; with `FWD_PRECOMP=1` also the forwarding selects for the *next* cycle).
-- **EX**: forwarding muxes, `rv32i_alu` (10 operations), `rv32i_branch` (6 conditions), branch/jump targets, redirect and misprediction logic.
-- **MEM**: `rv32i_lsu` (byte strobes and lane shift for stores; lane select and sign/zero extension for loads; misalignment detection).
-- **WB**: register write; RVFI record.
+- **IF**: `pc_f` drives `imem_addr`. The next PC is chosen in this order: `halted`, an EX redirect, a load-use stall (hold), an
+  ID redirect, and otherwise `pc+4`.
+- **ID**: `rv32i_decode` works out the opcode, immediates, control signals and the illegal and halt cases. `rv32i_regfile` is
+  31 x 32 with two read ports and the write-first bypass. `rv32i_hazard` detects load-use and, with `FWD_PRECOMP=1`, also
+  computes the forwarding selects for the next cycle.
+- **EX**: the forwarding muxes, `rv32i_alu` (10 operations), `rv32i_branch` (6 conditions), the branch and jump targets, and the
+  redirect and misprediction logic.
+- **MEM**: `rv32i_lsu` makes the byte strobes and shifts store data into its lane, picks the lane for loads and sign- or
+  zero-extends them, and flags misaligned accesses.
+- **WB**: writes the register and the RVFI record.
 
-The operation of one instruction through stall, redirect, trap and retire paths is in `docs/diagrams/rv32i_flowchart.png`; a cycle-by-cycle
-example of forwarding, a load-use stall and a taken-branch flush is in `docs/diagrams/rv32i_pipeline_timing.png`. Editable draw.io
-sources (`.drawio`) sit beside the images. The full design document is `docs/rv32i_design_document.md` (also `.docx`, `.pdf`).
+`docs/diagrams/rv32i_flowchart.png` follows one instruction through the stall, redirect, trap and retire paths, and
+`docs/diagrams/rv32i_pipeline_timing.png` goes cycle by cycle through forwarding, a load-use stall and a taken-branch flush. The
+editable draw.io sources (`.drawio`) are next to the images. The full design document is `docs/rv32i_design_document.md`, also
+as `.docx` and `.pdf`.
 
-## Verification strategy
+## How it's verified
 
-1. **Lock-step against an ISS** (`tools/rviss.py`, written from the instruction tables, independent of the RTL decoder). Every retired
-   instruction's RVFI record (pc, instruction, next pc, source/destination registers and values, memory address, byte masks, load and
-   store data, halt/trap) must equal the ISS record, and the final memory images must be identical.
-2. **A third, independent oracle**: directed tests (`tools/gen_directed.py`) carry expected values computed by plain Python arithmetic in
-   the generator, and fail with a check number in `gp`; benchmarks (`tools/gen_bench.py`) end by comparing against Python (`zlib.crc32`,
-   sieve count, sorted-array checksum ...). The assembler (`tools/rvasm.py`) is checked against 31 independent encodings, including the
-   words an external assembler produced for the earlier repository.
-3. **Constrained-random programs** (`tools/rvgen.py`): weighted instruction classes, a dependency bias that makes RAW distances 1..3 and
-   load-use pairs frequent, edge-value operands, forward branches over wrong-path filler, counted loops, memory-resident loop counters (a
-   load directly in front of a backward branch), JALR through computed addresses, and an occasional trap ending.
-4. **Bound assertions** (`verif/rv32i_checker.sv`, 48 labelled assertions and a set of named cover points): forwarding selects are exactly the
-   rule in both directions ("whenever" and "only when"), the load-use stall is exact, a consumer is never in EX behind the load that feeds
-   it, flush/redirect behaviour for both BP modes, trap squash and sticky halt, no side effect from an invalid instruction, store strobes
-   equal the address lane, RVFI sanity, misaligned control-transfer targets trap and write nothing.
-5. **Checking the checks** (`scripts/mutants.py`, `verif/mutants.py`): 73 deliberate one-line RTL bugs. Each is built twice (with and
-   without the assertions) and run against the directed tests plus 40 random programs. The harness *fails* if a mutant is caught by no
-   layer, if an assertion that a mutant is meant to trip does not fire, or if any assertion is never shown to fire.
-6. **Coverage** (`scripts/cov_run.py`): the named cover points plus Verilator line coverage over the merged runs of both BP modes; a
-   zero-hit bin, an uncovered `rtl/` line without a written reason, or a stale exclusion fails the gate.
-7. **Formal, bounded** (`formal/`, `make formal`): the RVFI port is checked with riscv-formal, SymbiYosys and z3 for all four
-   `BP_MODE` x `FWD_PRECOMP` variants (one check per RV32I instruction plus register, PC, uniqueness, causality and illegal-instruction checks).
-   It found a real defect that the layers above had missed (a taken branch or jump to a misaligned target did not trap); the fix and
-   the pre-fix evidence (`results/formal_as_found.txt`) are kept. These are bounded checks, not an unbounded proof.
+There are several layers, and each one is there to catch what the others could miss.
+
+1. **Lock-step against an ISS.** `tools/rviss.py` is written from the instruction tables and shares no code with the RTL decoder.
+   For every retired instruction the RVFI record (pc, instruction, next pc, source and destination registers and their values,
+   memory address, byte masks, load and store data, halt/trap) has to match the ISS record, and the final memory images have to be
+   identical.
+2. **A third, independent reference.** The directed tests (`tools/gen_directed.py`) carry expected values computed with plain
+   Python arithmetic in the generator, and a failing test reports its check number in `gp`. The benchmarks (`tools/gen_bench.py`)
+   end by comparing their result with Python, for example `zlib.crc32`, the sieve count or a checksum of the sorted array. The
+   assembler (`tools/rvasm.py`) is checked against 31 encodings worked out independently, including the words an external
+   assembler produced for my earlier repository.
+3. **Constrained-random programs** (`tools/rvgen.py`). The instruction classes are weighted, and a dependency bias makes RAW
+   distances of 1..3 and load-use pairs common. The generator also uses edge-value operands, forward branches over wrong-path
+   filler, counted loops, loop counters kept in memory (so a load sits right in front of a backward branch), JALR through computed
+   addresses, and now and then a program that ends in a trap.
+4. **Bound assertions** (`verif/rv32i_checker.sv`): 48 labelled assertions and a set of named cover points. They check the
+   forwarding selects against the rule in both directions (set whenever the rule says so, and only then), that the load-use stall
+   is exact and a consumer never sits in EX behind the load that feeds it, the flush and redirect behaviour in both BP modes, trap
+   squashing and the sticky halt, that an invalid instruction has no side effect, that store strobes match the address lane, that
+   the RVFI output makes sense, and that a misaligned control-transfer target traps and writes nothing.
+5. **Checking the checks** (`scripts/mutants.py`, `verif/mutants.py`). I wrote 73 deliberate one-line bugs into the RTL. Each one
+   is built twice, with and without the assertions, and run against the directed tests plus 40 random programs. The harness fails
+   if no layer catches a mutant, if an assertion that a mutant is meant to trip stays quiet, or if any assertion is never seen to
+   fire.
+6. **Coverage** (`scripts/cov_run.py`): the named cover points plus Verilator line coverage, merged over the runs of both BP
+   modes. The gate fails on a cover bin with no hits, on an uncovered `rtl/` line that has no written reason, and on an exclusion
+   that turns out to be covered.
+7. **Bounded formal checks** (`formal/`, `make formal`). The RVFI port goes through riscv-formal with SymbiYosys and z3 for all
+   four `BP_MODE` x `FWD_PRECOMP` variants: one check per RV32I instruction, plus the register, PC, uniqueness, causality and
+   illegal-instruction checks. This found a real bug that every layer above had missed: a taken branch or jump to a misaligned
+   target didn't trap. I fixed it and kept the evidence from before the fix (`results/formal_as_found.txt`). These are bounded
+   checks, so they are not an unbounded proof.
 
 ## How to run
 
 ```bash
-make help       # all targets
+make help       # every target
 make check      # lint, self-tests, directed tests, benchmarks + CPI, 100 random programs, coverage
 make mutants    # the 73-mutant campaign (about 15 minutes)
 make formal     # riscv-formal bounded checks, four variants (needs SymbiYosys, z3 and riscv-formal under ../../_toolchain)
 make ppa perf   # Yosys + OpenSTA for every configuration, then execution time = cycles x T_min
 ```
 
-Tools: Verilator 5.020 or newer, Yosys 0.33, OpenSTA (`sta`), Python 3 (matplotlib + pillow only for `make diagrams`), GNU make. The Sky130 HD
-liberty file is in `sky130hd/`. No RISC-V toolchain is needed: the assembler and the ISS are in `tools/`.
+You need Verilator 5.020 or newer, Yosys 0.33, OpenSTA (`sta`), Python 3 and GNU make; matplotlib and pillow are only for
+`make diagrams`. The Sky130 HD liberty file is in `sky130hd/`. There's no need for a RISC-V toolchain, since the assembler and
+the ISS are in `tools/`.
 
 ```
 rtl/        rv32i_defs.vh alu branch regfile decode lsu hazard core core_1cyc
@@ -289,27 +305,39 @@ Run settings: core utilisation 40 %, repair_setup_margin 0.3 ns, global placemen
 
 <!-- END RESULTS -->
 
-## How to read the timing and performance numbers
+## Reading the timing and performance numbers
 
-- The synthesis table is **pre-layout**: ideal clock, no wires, no placement, typical corner. It orders designs; it is not a sign-off frequency. One configuration (`BP_MODE=1`, `FWD_PRECOMP=1`) was also placed and routed (*Place and route* above): its routed minimum period is about twice the pre-layout figure.
-- The memories are outside the core. The SDC gives them a budget (read data 2.0 ns after the edge, address/write data 1.0 ns before the next
-  edge) that is an *assumption*, identical for every configuration.
-- The single-cycle core's period is the tool's maximum over its port-bounded path classes, so it does **not** add the two memory accesses a
-  real single-cycle machine would serialise inside one cycle: its figure is optimistic and every pipelined speed-up quoted is a **lower
-  bound under this model**.
-- `T_min = 10 ns - WNS(10 ns)` is not assumed: STA is re-run at +2 % (must meet) and -2 % (must fail) of T_min, and the table says whether it did.
-- The pipeline with the forwarding compare in EX (`FWD_PRECOMP=0`, `BP_MODE=0`) did not clearly beat the single-cycle core on these kernels: 0.92x
-  when first measured (`results/performance_before_misaligned_fix.md`) and 1.04x after the misaligned-target fix and a re-run (`results/performance.md`).
-  The same configuration's T_min moved from 6.024 to 5.549 ns although the fix added logic, so the timing-driven mapping varies by up to 8 % between
-  RTL revisions and differences of that size between configurations are within that noise. Precomputing the forwarding selects in ID gave 1.27x then 1.33x
-  (`BP_MODE=0`) and 1.37x both times (`BP_MODE=1`). Both `FWD_PRECOMP` variants are kept.
-- CPI is measured on seven small kernels (82,269 instructions in total), not a standard benchmark suite.
+- The synthesis table is pre-layout: ideal clock, no wires, no placement, typical corner. It's useful for comparing designs, not as
+  a sign-off frequency. I also placed and routed one configuration (`BP_MODE=1`, `FWD_PRECOMP=1`, see Place and route above), and
+  its routed minimum period is about twice the pre-layout figure.
+- The memories are outside the core. The SDC gives them a budget (read data 2.0 ns after the edge, address and write data 1.0 ns
+  before the next edge). That's an assumption, and it is the same for every configuration.
+- The single-cycle core's period is the tool's worst case over its port-bounded paths, so it doesn't include the two memory
+  accesses a real single-cycle machine would have to fit into one cycle. That makes its figure optimistic, so every pipelined
+  speed-up I quote is a lower bound under this model.
+- `T_min = 10 ns - WNS(10 ns)` isn't taken on trust: STA is re-run at +2 % of T_min (it must meet) and at -2 % (it must fail), and
+  the table says whether it did.
+- The pipeline with the forwarding compare in EX (`FWD_PRECOMP=0`, `BP_MODE=0`) didn't clearly beat the single-cycle core on these
+  kernels: 0.92x when I first measured it (`results/performance_before_misaligned_fix.md`) and 1.04x after the misaligned-target
+  fix and a re-run (`results/performance.md`). Its T_min went from 6.024 to 5.549 ns even though the fix added logic, so the
+  timing-driven mapping moves by up to 8 % between RTL revisions, and differences that small between configurations are within
+  that noise. Precomputing the forwarding selects in ID gave 1.27x and then 1.33x with `BP_MODE=0`, and 1.37x both times with
+  `BP_MODE=1`. I kept both `FWD_PRECOMP` variants.
+- CPI is measured on seven small kernels (82,269 instructions in total), not on a standard benchmark suite.
 
-## Limitations (not done, deliberately)
+## Limitations
 
-- No Zicsr, no interrupts or exceptions beyond "stop", no M or C extensions, no privilege levels. A real core would trap and continue.
-- Ideal memories without wait states; no cache or bus interface; no instruction-fetch stall.
-- Static prediction only (BTFN from ID); no branch target buffer.
-- Timing is pre-layout except for one routed configuration (nine target periods, OpenROAD, extracted parasitics, typical corner); the other three pipelined configurations and the single-cycle baseline are not routed, so no routed speed-up is claimed. No signoff DRC / LVS (Magic, KLayout, Netgen not installed); power is OpenSTA's default-activity figure, not a workload result.
-- Formal verification is bounded (riscv-formal checks to a stated depth, 172 of 172 pass over four variants); there is no unbounded proof, no liveness or bus check, and `reg` covers register x5 only.
-- riscv-tests / riscv-arch-test are not run: they need a RISC-V GCC toolchain that is not installed here. The directed tests and the ISS take their place and are labelled as such.
+Things I left out on purpose or haven't done yet:
+
+- No Zicsr, no interrupts, no exceptions beyond stopping the core, no M or C extension and no privilege levels. A real core would
+  trap and carry on.
+- Ideal memories with no wait states: no cache, no bus interface and no instruction-fetch stall.
+- Static branch prediction only (backward-taken, from ID) and no branch target buffer.
+- Timing is pre-layout except for the one routed configuration (nine target periods, OpenROAD, extracted parasitics, typical
+  corner). The other three pipelined configurations and the single-cycle baseline aren't routed, so I don't claim a routed
+  speed-up. There's no signoff DRC or LVS because Magic, KLayout and Netgen aren't installed, and the power number is OpenSTA's
+  default-activity figure, not a measurement on a real workload.
+- The formal checks are bounded (riscv-formal to a stated depth, 172 of 172 pass across the four variants). There's no unbounded
+  proof and no liveness or bus check, and the `reg` check only covers register x5.
+- I haven't run riscv-tests or riscv-arch-test because they need a RISC-V GCC toolchain, which isn't installed here. The directed
+  tests and the ISS stand in for them, and they are labelled as such.
