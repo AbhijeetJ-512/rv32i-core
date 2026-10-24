@@ -1,0 +1,34 @@
+max slew
+
+Pin                                     Limit     Slew    Slack
+---------------------------------------------------------------
+_10893_/Y                               1.484    1.788   -0.303 (VIOLATED)
+ANTENNA_50/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_48/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_54/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+_11618_/D                               1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_57/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_51/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_49/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_53/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_56/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_52/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_55/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+ANTENNA_58/DIODE                        1.500    1.788   -0.288 (VIOLATED)
+_10393_/Y                               1.496    1.619   -0.123 (VIOLATED)
+_10400_/S                               1.500    1.620   -0.120 (VIOLATED)
+_10403_/S                               1.500    1.619   -0.119 (VIOLATED)
+_10399_/S                               1.500    1.619   -0.119 (VIOLATED)
+_10408_/S                               1.500    1.619   -0.119 (VIOLATED)
+_10401_/S                               1.500    1.619   -0.119 (VIOLATED)
+_10402_/S                               1.500    1.619   -0.119 (VIOLATED)
+_10406_/S                               1.500    1.619   -0.119 (VIOLATED)
+
+max capacitance
+
+Pin                                     Limit      Cap    Slack
+---------------------------------------------------------------
+_10393_/Y                               0.125    0.141   -0.017 (VIOLATED)
+_10893_/Y                               0.050    0.062   -0.012 (VIOLATED)
+_11052_/Y                               0.050    0.051   -0.001 (VIOLATED)
+

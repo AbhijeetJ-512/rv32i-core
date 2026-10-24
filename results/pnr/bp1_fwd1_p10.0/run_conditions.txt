@@ -1,0 +1,7 @@
+clock_period_ns=10.000000
+core_utilization=40
+global_place_density=0.6000000000000001
+repair_setup_margin=0.3
+grt_antenna_repair=0
+pnr_stop_after=
+pnr_set=

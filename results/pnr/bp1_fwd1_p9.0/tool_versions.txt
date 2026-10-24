@@ -1,0 +1,4 @@
+config=bp1_fwd1
+netlist_source=build/ppa/pipe_bp1_fwd1_speed_p10/synth.v
+openroad=v2.0-25346-gc62be3f952 
+yosys=Yosys 0.33 (git sha1 2584903a060)

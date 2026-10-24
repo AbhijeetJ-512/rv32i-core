@@ -1,0 +1,6 @@
+clock_period_ns=8.000000
+core_utilization=40
+global_place_density=0.6000000000000001
+repair_setup_margin=0.3
+pnr_stop_after=
+pnr_set=
