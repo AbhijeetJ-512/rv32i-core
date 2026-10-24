@@ -1,0 +1,31 @@
+# synth_template.ys - Yosys synthesis of an rv32i core to Sky130 HD; scripts/ppa.py fills in the @tokens@.
+# Same structure as the other projects in this portfolio: structural checks, synth, plain DFFs, liberty mapping, abc -D.
+read_verilog -sv -I @RTLDIR@ @SOURCES@
+read_liberty -lib @LIB@
+chparam -set RVFI_EN 0 @PARAMS@ @TOP@
+hierarchy -check -top @TOP@
+proc
+tribuf
+
+log CHECK no-tribuf
+select -assert-none t:$tribuf t:$_TBUF_
+log PASS no-tribuf
+
+log CHECK check-rtl
+check -assert
+log PASS check-rtl
+
+synth -top @TOP@ -flatten -noabc
+
+log CHECK no-latch
+select -assert-none t:$*latch* t:$_DLATCH*
+log PASS no-latch
+
+dfflegalize -cell $_DFF_P_ x
+dfflibmap -liberty @LIB@
+@ABC@
+hilomap -hicell sky130_fd_sc_hd__conb_1 HI -locell sky130_fd_sc_hd__conb_1 LO
+opt_clean -purge
+
+tee -o @OUTDIR@/stat.txt stat -liberty @LIB@
+write_verilog -noattr @OUTDIR@/synth.v
