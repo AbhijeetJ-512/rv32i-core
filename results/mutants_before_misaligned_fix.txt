@@ -1,0 +1,75 @@
+mutants: 67, caught 67
+test set per mutant: 22 directed + 40 random programs, lock-step vs ISS
+caught ONLY by an assertion (the other layers missed them): M07, M29, M33, M49, M50, M53, M58, M59, M60, M61, M63
+assertions defined: 45; fired in at least one mutant run: 45
+assertions with no mutant bound: none
+assertions that fired in no run: none
+PROBLEMS: none
+
+M01  KILLED bp0  no WB-to-EX forward for operand A                              assert-fired: a_fwd_a_none,a_fwd_a_wb_always                   without-assertions: trace
+M02  KILLED bp0  no MEM-to-EX forward for operand B                             assert-fired: a_fwd_b_mem_always,a_fwd_b_none,a_fwd_b_wb_only  without-assertions: trace
+M03  KILLED bp0  forwarding priority swapped: an older WB value beats the young assert-fired: a_fwd_a_mem_always,a_fwd_a_wb_only               without-assertions: trace
+M04  KILLED bp0  x0 destination forwarded (rd != 0 test dropped, operand A, MEM assert-fired: a_fwd_a_mem_only                                 without-assertions: trace
+M05  KILLED bp0  load-use stall never issued                                    assert-fired: a_no_load_use_slip,a_stall_always                without-assertions: trace
+M06  KILLED bp0  load-use stall ignores operand B                               assert-fired: a_no_load_use_slip,a_stall_always                without-assertions: trace
+M07  KILLED bp0  stall on a register-field match even when the operand is not r assert-fired: a_stall_only                                     without-assertions: NOT CAUGHT
+M08  KILLED bp0  taken branch does not squash the instruction in ID             assert-fired: a_ex_flush_two                                   without-assertions: trace
+M09  KILLED bp0  taken branch does not squash the instruction in IF             assert-fired: a_ex_flush_two                                   without-assertions: trace
+M10  KILLED bp0  BLT / BGE compare unsigned                                     assert-fired: -                                                without-assertions: trace
+M11  KILLED bp0  BGE has the sense of BLT                                       assert-fired: -                                                without-assertions: trace
+M12  KILLED bp0  branch / JAL target computed from pc+4                         assert-fired: a_pc_aligned                                     without-assertions: trace
+M13  KILLED bp0  JALR does not clear bit 0 of the target                        assert-fired: a_pc_aligned                                     without-assertions: trace
+M14  KILLED bp0  link register receives pc instead of pc+4                      assert-fired: -                                                without-assertions: trace
+M15  KILLED bp0  SRA is a logical shift                                         assert-fired: -                                                without-assertions: trace
+M16  KILLED bp0  SLT compares unsigned                                          assert-fired: -                                                without-assertions: trace
+M17  KILLED bp0  SUB operands swapped                                           assert-fired: -                                                without-assertions: trace
+M18  KILLED bp0  LB zero-extends                                                assert-fired: -                                                without-assertions: trace
+M19  KILLED bp0  LH sign-extends from the wrong bit                             assert-fired: -                                                without-assertions: trace
+M20  KILLED bp0  SH to the upper half writes the lower half                     assert-fired: a_store_strobe_lane                              without-assertions: trace
+M21  KILLED bp0  SB always writes byte lane 0                                   assert-fired: a_store_strobe_lane                              without-assertions: trace
+M22  KILLED bp0  no write-first bypass on read port 1 (breaks RAW distance 3)   assert-fired: -                                                without-assertions: trace
+M23  KILLED bp0  B-immediate bit 11 taken from the wrong field                  assert-fired: -                                                without-assertions: trace
+M24  KILLED bp0  S-immediate low bits from rs2 field                            assert-fired: -                                                without-assertions: trace
+M25  KILLED bp0  AUIPC adds rs1 instead of the pc                               assert-fired: -                                                without-assertions: trace
+M26  KILLED bp0  LUI adds rs1 to the immediate                                  assert-fired: -                                                without-assertions: trace
+M27  KILLED bp0  misaligned LW/SW not detected                                  assert-fired: -                                                without-assertions: trace
+M28  KILLED bp0  unknown opcodes execute as no-ops                              assert-fired: -                                                without-assertions: trace
+M29  KILLED bp0  ECALL/illegal does not clear the IF/ID register                assert-fired: a_halted_drains,a_trap_squashes                  without-assertions: NOT CAUGHT
+M30  KILLED bp0  a misaligned store still writes memory before trapping         assert-fired: a_we_only                                        without-assertions: trace
+M31  KILLED bp0  halted is not sticky                                           assert-fired: a_halted_sticky                                  without-assertions: memory
+M32  KILLED bp1  mispredicted-taken branch is repaired to the taken target      assert-fired: -                                                without-assertions: trace
+M33  KILLED bp1  predict-taken for every branch (functionally correct, slower)  assert-fired: a_btfn                                           without-assertions: NOT CAUGHT
+M34  KILLED bp1  ID redirect fires while the instruction is stalled             assert-fired: a_stall_holds_id                                 without-assertions: trace
+M35  KILLED bp0  operand B WB-forward compares against rs1                      assert-fired: a_fwd_b_none,a_fwd_b_wb_always,a_fwd_b_wb_only   without-assertions: trace
+M36  KILLED bp0  load data never reaches the register file                      assert-fired: -                                                without-assertions: trace
+M37  KILLED bp0  loads do not select the addressed byte lane                    assert-fired: -                                                without-assertions: trace
+M38  KILLED bp0  a misaligned load still writes its destination register        assert-fired: -                                                without-assertions: trace
+M40  KILLED bp0  precomputed select: no WB forward for operand A                assert-fired: a_fwd_a_none,a_fwd_a_wb_always                   without-assertions: trace
+M41  KILLED bp0  precomputed select: operand B compared against rs1             assert-fired: a_fwd_b_mem_always,a_fwd_b_mem_only,a_fwd_b_none,a_fwd_b_wb_always,a_fwd_b_wb_only without-assertions: trace
+M42  KILLED bp0  precomputed select: x0 destination forwarded                   assert-fired: a_fwd_a_mem_only                                 without-assertions: trace
+M43  KILLED bp0  precomputed select: older producer wins over the younger       assert-fired: a_fwd_a_mem_always,a_fwd_a_wb_only               without-assertions: trace
+M44  KILLED bp0  x0 destination forwarded from WB (operand A)                   assert-fired: a_fwd_a_wb_only                                  without-assertions: trace
+M45  KILLED bp0  x0 destination forwarded from MEM (operand B)                  assert-fired: a_fwd_b_mem_only                                 without-assertions: trace
+M46  KILLED bp0  JALR does not redirect the fetch                               assert-fired: a_jalr_redirects                                 without-assertions: trace
+M47  KILLED bp0  taken branches never redirect (BP_MODE 0)                      assert-fired: a_taken_redirects                                without-assertions: trace
+M48  KILLED bp0  every branch redirects, taken or not (BP_MODE 0)               assert-fired: a_nt_no_redirect                                 without-assertions: trace
+M49  KILLED bp0  ECALL / illegal instruction redirects the fetch                assert-fired: a_pc_aligned,a_redirect_only                     without-assertions: NOT CAUGHT
+M50  KILLED bp0  ID-stage redirect active in BP_MODE 0                          assert-fired: a_no_id_redirect                                 without-assertions: NOT CAUGHT
+M51  KILLED bp1  misprediction = any taken branch (a correctly predicted taken  assert-fired: a_mispredict,a_predict_ok                        without-assertions: trace
+M52  KILLED bp1  JAL is not redirected from ID                                  assert-fired: a_jal_in_id                                      without-assertions: trace
+M53  KILLED bp1  JALR is redirected from ID with a stale rs1                    assert-fired: a_id_redirect_only,a_pc_aligned                  without-assertions: NOT CAUGHT
+M54  KILLED bp0  stall does not insert a bubble: the stalled instruction also e assert-fired: a_no_load_use_slip,a_stall_bubble                without-assertions: trace
+M55  KILLED bp0  stall does not hold the PC                                     assert-fired: a_pc_aligned,a_stall_holds_pc                    without-assertions: trace
+M56  KILLED bp0  stall does not hold the IF/ID register                         assert-fired: a_stall_holds_id                                 without-assertions: trace
+M57  KILLED bp0  the EX redirect does not reach the PC                          assert-fired: a_ex_target                                      without-assertions: trace
+M58  KILLED bp0  a squashed EX/MEM entry keeps its register-write flag          assert-fired: a_rw_valid_m                                     without-assertions: NOT CAUGHT
+M59  KILLED bp0  a squashed EX/MEM entry keeps its store flag                   assert-fired: a_mem_valid_m                                    without-assertions: NOT CAUGHT
+M60  KILLED bp0  a MEM-stage trap does not squash the younger EX/MEM entry      assert-fired: a_no_retire_after_halt,a_trap_mem_squash_m       without-assertions: NOT CAUGHT
+M61  KILLED bp0  ECALL / illegal does not squash the younger instruction in ID  assert-fired: a_halted_drains,a_no_retire_after_halt,a_trap_squashes without-assertions: NOT CAUGHT
+M62  KILLED bp0  stores never reach the memory                                  assert-fired: a_we_always                                      without-assertions: trace
+M63  KILLED bp0  a misaligned load still reads the memory                       assert-fired: a_re_only                                        without-assertions: NOT CAUGHT
+M64  KILLED bp0  loads never enable the read                                    assert-fired: a_re_always                                      without-assertions: trace
+M65  KILLED bp0  trace reports data written to x0 (RVFI only)                   assert-fired: a_x0_no_write                                    without-assertions: trace
+M66  KILLED bp0  retirement counter skips numbers (RVFI only)                   assert-fired: a_order_counts                                   without-assertions: trace
+M67  KILLED bp0  a trap does not raise halt on the trace (RVFI only)            assert-fired: a_trap_implies_halt                              without-assertions: trace
+M68  KILLED bp1  an ID redirect does not squash the instruction fetched behind  assert-fired: a_id_flush_one                                   without-assertions: trace
