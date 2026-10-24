@@ -1,0 +1,3 @@
+# rv32i_5stage_core coverage exclusions: <file>:<line> <reason>  (a stale exclusion - one that is in fact covered - fails the gate)
+rtl/rv32i_regfile.sv:22 the optional synchronous reset of the register file (RESET_REGS = 1) is off by default: registers are not reset, programs initialise what they read
+rtl/rv32i_regfile.sv:23 same: the body of the RESET_REGS reset loop
