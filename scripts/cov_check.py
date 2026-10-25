@@ -120,8 +120,9 @@ def main():
     toggles = [(f, c) for f, c in recs if page(f) == "v_toggle" and f.get("f", "").startswith(prefix)]
     unhit_toggles = sorted(f"{f['f']}  {f['h']}  {f['o']}" for f, c in toggles if c == 0)
 
+    shown = os.path.relpath(os.path.abspath(args.covdat), os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     with open(args.bins_out, "w") as out:
-        out.write("# hits  hierarchical name of each named cover bin (from %s)\n" % args.covdat)
+        out.write("# hits  hierarchical name of each named cover bin (from %s)\n" % shown)
         for name, hits in sorted(bins):
             out.write(f"{hits:10d}  {name}\n")
     with open(args.toggle_out, "w") as out:
@@ -129,7 +130,7 @@ def main():
         for row in unhit_toggles:
             out.write(row + "\n")
     with open(args.summary_out, "w") as out:
-        out.write(f"source               : {args.covdat}\n")
+        out.write(f"source               : {shown}\n")
         out.write(f"named cover bins     : {len(bins)} total, {sum(1 for _, c in bins if c)} hit, "
                   f"{sum(1 for _, c in bins if not c)} zero\n")
         out.write(f"{prefix} line blocks    : {len(lines)} total, "

@@ -88,7 +88,7 @@ There are several layers, and each one is there to catch what the others could m
 
 ```bash
 make help       # every target
-make check      # lint, self-tests, directed tests, benchmarks + CPI, 100 random programs, coverage
+make check      # lint, self-tests, directed tests, benchmarks + CPI, 200 random programs, coverage
 make mutants    # the 73-mutant campaign (about 15 minutes)
 make formal     # riscv-formal bounded checks, four variants (needs SymbiYosys, z3 and riscv-formal under ../../_toolchain)
 make ppa perf   # Yosys + OpenSTA for every configuration, then execution time = cycles x T_min
@@ -130,7 +130,7 @@ From `results/directed.txt` (`make test`).
 From `results/coverage_summary.txt` (`make cov`).
 
 ```text
-source               : /home/abhi/Documents/VLSI/Resume_projects/rv32i_5stage_core/build/cov/merged.dat
+source               : build/cov/merged.dat
 named cover bins     : 143 total, 143 hit, 0 zero
 rtl/ line blocks    : 117 total, 115 covered, 2 excluded, 0 uncovered
 rtl/ files with no line records : rv32i_core_1cyc.sv (procedural blocks only are recorded; these are covered by toggle coverage, the cover bins and the assertions, not by the line gate)

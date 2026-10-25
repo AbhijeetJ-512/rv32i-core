@@ -4,7 +4,7 @@
 
 PYTHON ?= python3
 RTL := rtl/rv32i_alu.sv rtl/rv32i_branch.sv rtl/rv32i_regfile.sv rtl/rv32i_decode.sv rtl/rv32i_lsu.sv rtl/rv32i_hazard.sv rtl/rv32i_core.sv
-NRAND ?= 100
+NRAND ?= 200
 
 .DEFAULT_GOAL := help
 .PHONY: help
@@ -15,7 +15,7 @@ help:
 	@echo "make sims        build both BP_MODE simulators (with the bound assertions)"
 	@echo "make test        directed tests, lock-step against the ISS, BP_MODE 0 and 1"
 	@echo "make bench       benchmarks (self-checking) + CPI table -> results/cpi.md"
-	@echo "make rand        NRAND constrained-random programs, lock-step (NRAND=100)"
+	@echo "make rand        NRAND constrained-random programs, lock-step (NRAND=200, the run in results/random.txt)"
 	@echo "make cov         merged coverage run -> results/coverage_*.txt"
 	@echo "make mutants     73 injected bugs, every one must be caught -> results/mutants.txt (about 15 min)"
 	@echo "make formal      riscv-formal bounded checks, 4 variants -> results/formal.txt (needs ../../_toolchain; about 10 min)"

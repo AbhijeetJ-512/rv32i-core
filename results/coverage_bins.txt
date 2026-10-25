@@ -1,4 +1,4 @@
-# hits  hierarchical name of each named cover bin (from /home/abhi/Documents/VLSI/Resume_projects/rv32i_5stage_core/build/cov/merged.dat)
+# hits  hierarchical name of each named cover bin (from build/cov/merged.dat)
        290  TOP.tb_core.dut.u_chk.c_back_to_back_redirect
       1035  TOP.tb_core.dut.u_chk.c_back_to_back_redirect
       2242  TOP.tb_core.dut.u_chk.c_branch_after_stall
