@@ -3,7 +3,7 @@
 # to show the checks can fail. Writes results/formal_as_found.txt. Variant: BP_MODE=0, FWD_PRECOMP=1.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"; ROOT="$(dirname "$HERE")"
-TC="$(cd "$ROOT/../.." && pwd)/_toolchain"
+TC="${TC:-$(cd "$ROOT/../.." && pwd)/_toolchain}"
 W="$ROOT/build/as_found"; rm -rf "$W"; mkdir -p "$W"
 cp -r "$ROOT/rtl" "$W/rtl"; cp "$HERE/as_found/rv32i_core.sv" "$W/rtl/rv32i_core.sv"
 mkdir -p "$W/formal"; cp "$HERE/wrapper.sv" "$HERE/checks.cfg.in" "$HERE/run_formal.sh" "$W/formal/"

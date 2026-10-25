@@ -18,7 +18,7 @@ help:
 	@echo "make rand        NRAND constrained-random programs, lock-step (NRAND=200, the run in results/random.txt)"
 	@echo "make cov         merged coverage run -> results/coverage_*.txt"
 	@echo "make mutants     73 injected bugs, every one must be caught -> results/mutants.txt (about 15 min)"
-	@echo "make formal      riscv-formal bounded checks, 4 variants -> results/formal.txt (needs ../../_toolchain; about 10 min)"
+	@echo "make formal      riscv-formal bounded checks, 4 variants -> results/formal.txt (needs riscv-formal, sby and z3 under TC, default ../../_toolchain; about 10 min)"
 	@echo "make ppa         Yosys + OpenSTA for all configurations -> results/ppa.md"
 	@echo "make perf        execution time = cycles x T_min -> results/performance.md"
 	@echo "make pnr         OpenROAD place and route of the BP_MODE=1 FWD_PRECOMP=1 core at PNR_PERIODS (nine periods from 6.0 to 10.0 ns) -> results/pnr/, results/pnr.md (needs make ppa first)"
@@ -95,7 +95,7 @@ diagrams:
 	@$(PYTHON) docs/diagrams/make_diagrams.py
 
 .PHONY: formal
-formal:   # riscv-formal bounded checks, 4 variants (needs ../../_toolchain/{riscv-formal,sbyroot,sbyvenv}); also: formal/run_as_found.sh
+formal:   # riscv-formal bounded checks, 4 variants (needs $TC/{riscv-formal,sbyroot,sbyvenv}, TC defaults to ../../_toolchain); also: formal/run_as_found.sh
 	@bash formal/run_formal.sh
 
 .PHONY: check

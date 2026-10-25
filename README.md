@@ -90,7 +90,7 @@ There are several layers, and each one is there to catch what the others could m
 make help       # every target
 make check      # lint, self-tests, directed tests, benchmarks + CPI, 200 random programs, coverage
 make mutants    # the 73-mutant campaign (about 15 minutes)
-make formal     # riscv-formal bounded checks, four variants (needs SymbiYosys, z3 and riscv-formal under ../../_toolchain)
+make formal     # riscv-formal bounded checks, four variants (needs SymbiYosys, z3 and riscv-formal under TC=..., default ../../_toolchain)
 make ppa perf   # Yosys + OpenSTA for every configuration, then execution time = cycles x T_min
 ```
 
