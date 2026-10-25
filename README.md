@@ -341,3 +341,8 @@ Things I left out on purpose or haven't done yet:
   proof and no liveness or bus check, and the `reg` check only covers register x5.
 - I haven't run riscv-tests or riscv-arch-test because they need a RISC-V GCC toolchain, which isn't installed here. The directed
   tests and the ISS stand in for them, and they are labelled as such.
+
+## License
+
+MIT, see [`LICENSE`](LICENSE). The Sky130 platform files in `sky130hd/` aren't mine and keep their own licenses (BSD 3-Clause from
+OpenROAD, Apache 2.0 for the SkyWater cell library); [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) has the details.
