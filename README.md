@@ -106,7 +106,7 @@ tools/      rvasm.py rviss.py rvgen.py compare_trace.py run_tests.py gen_directe
 tests/      asm/ (28 directed, generated)  bench/ (7 benchmarks, generated)
 formal/     wrapper.sv checks.cfg.in run_formal.sh summarize.py run_as_found.sh as_found/ README.md
 scripts/    build_sim.sh mutants.py cov_run.py cov_check.py ppa.py fmax.py cpi_report.py perf_report.py abc_speed.* synth_template.ys ...
-constraints/rv32i.sdc    results/    docs/ (design document, diagrams)
+constraints/rv32i.sdc    results/    docs/ (design document; diagrams/ with make_diagrams.py and the dgm.py helper)
 ```
 
 ## Results

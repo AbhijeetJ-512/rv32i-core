@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Draws the rv32i_5stage_core diagrams with _tools/dgm.py: one specification -> .drawio + .png + .svg.
-Run:  python3 docs/diagrams/make_diagrams.py   (needs matplotlib + pillow; see _tools/requirements.txt)"""
+"""Draws the rv32i_5stage_core diagrams with dgm.py (in this folder): one specification -> .drawio + .png + .svg.
+Run:  python3 docs/diagrams/make_diagrams.py   (needs matplotlib + pillow)"""
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "..", "_tools"))
+sys.path.insert(0, HERE)
 from dgm import Diagram  # noqa: E402
 
 
