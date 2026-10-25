@@ -140,8 +140,8 @@ possible to write it down as assertions (section G.4).
 
 ## C. Draw.io architecture diagram
 
-The diagram is generated from a single specification by `docs/diagrams/make_diagrams.py`, using `dgm.py`, a small drawing helper from
-my portfolio tools that isn't part of this repository. It writes the editable draw.io file and the images from the same objects, so the
+The diagram is generated from a single specification by `docs/diagrams/make_diagrams.py`, using `dgm.py`, a small drawing helper of
+mine that sits next to it in `docs/diagrams/`. It writes the editable draw.io file and the images from the same objects, so the
 two can't drift apart. The diagram shows the five stages, the pipeline registers, the data flow in blue, the control flow in dashed
 orange, the two forwarding paths back into EX, and the register-write loop from WB to the register file.
 
@@ -367,7 +367,7 @@ Verilator 5.020 handles implication and `$past` but not `##` sequence delays or 
 Merged coverage of the directed tests, the benchmarks and random programs, both BP modes (`results/coverage_summary.txt`):
 
 ```text
-source               : /home/abhi/Documents/VLSI/Resume_projects/rv32i_5stage_core/build/cov/merged.dat
+source               : build/cov/merged.dat
 named cover bins     : 143 total, 143 hit, 0 zero
 rtl/ line blocks    : 117 total, 115 covered, 2 excluded, 0 uncovered
 rtl/ files with no line records : rv32i_core_1cyc.sv (procedural blocks only are recorded; these are covered by toggle coverage, the cover bins and the assertions, not by the line gate)
@@ -410,9 +410,9 @@ This campaign taught me more than anything else in the project:
 ### G.6.1 Simulation commands and tools
 
 ```bash
-make check      # lint, self-tests, directed tests, benchmarks, 100 random programs, coverage
+make check      # lint, self-tests, directed tests, benchmarks, 200 random programs, coverage
 make mutants    # the injected-bug campaign
-make formal     # riscv-formal bounded checks (G.7); needs SymbiYosys, z3 and a riscv-formal checkout under ../../_toolchain
+make formal     # riscv-formal bounded checks (G.7); needs SymbiYosys, z3 and riscv-formal under TC=... (default ../../_toolchain)
 ```
 
 You need Verilator 5.020 or newer, Python 3 and GNU make; Yosys and OpenSTA for section H; and SymbiYosys 0.33, z3 and riscv-formal for

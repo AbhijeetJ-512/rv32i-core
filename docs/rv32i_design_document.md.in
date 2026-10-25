@@ -140,8 +140,8 @@ possible to write it down as assertions (section G.4).
 
 ## C. Draw.io architecture diagram
 
-The diagram is generated from a single specification by `docs/diagrams/make_diagrams.py`, using `dgm.py`, a small drawing helper from
-my portfolio tools that isn't part of this repository. It writes the editable draw.io file and the images from the same objects, so the
+The diagram is generated from a single specification by `docs/diagrams/make_diagrams.py`, using `dgm.py`, a small drawing helper of
+mine that sits next to it in `docs/diagrams/`. It writes the editable draw.io file and the images from the same objects, so the
 two can't drift apart. The diagram shows the five stages, the pipeline registers, the data flow in blue, the control flow in dashed
 orange, the two forwarding paths back into EX, and the register-write loop from WB to the register file.
 
@@ -385,9 +385,9 @@ This campaign taught me more than anything else in the project:
 ### G.6.1 Simulation commands and tools
 
 ```bash
-make check      # lint, self-tests, directed tests, benchmarks, 100 random programs, coverage
+make check      # lint, self-tests, directed tests, benchmarks, 200 random programs, coverage
 make mutants    # the injected-bug campaign
-make formal     # riscv-formal bounded checks (G.7); needs SymbiYosys, z3 and a riscv-formal checkout under ../../_toolchain
+make formal     # riscv-formal bounded checks (G.7); needs SymbiYosys, z3 and riscv-formal under TC=... (default ../../_toolchain)
 ```
 
 You need Verilator 5.020 or newer, Python 3 and GNU make; Yosys and OpenSTA for section H; and SymbiYosys 0.33, z3 and riscv-formal for
