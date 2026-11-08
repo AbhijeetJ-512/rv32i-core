@@ -1,0 +1,1394 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RV32I 5-Stage Core Explorer</title>
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: drafting-table schematic. Full-width datapath canvas left, inspector rail right, timing/trace sheets below. */
+:root{
+  --bg:#E9EDF1; --surface:#FFFFFF; --surface-2:#F3F6F8; --ink:#121B24; --muted:#556574; --line:#C3CDD7; --grid:#D3DBE3;
+  --accent:#1B5FC4; --accent-ink:#FFFFFF;
+  --data:#1B5FC4; --fwd:#B86200; --ctl:#6E3FC4; --trap:#C42F38; --mem:#0F7F55; --ver:#6A7B8C;
+  --stage-if:#1B5FC4; --stage-id:#6E3FC4; --stage-ex:#B86200; --stage-mem:#0F7F55; --stage-wb:#A0306F;
+  --t0:#1B5FC4; --t1:#B86200; --t2:#0F7F55; --t3:#A0306F; --t4:#6E3FC4; --t5:#0E7C8C; --t6:#8A6A00; --t7:#C42F38;
+  --hatch:rgba(110,63,196,.16);
+  --f-display:"Saira Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"JetBrains Mono",ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0C1219; --surface:#131B24; --surface-2:#18222D; --ink:#E1E8EF; --muted:#8D9BA9; --line:#2B3947; --grid:#1B2631;
+  --accent:#5FA3FF; --accent-ink:#06121F;
+  --data:#5FA3FF; --fwd:#F0A63A; --ctl:#A986F5; --trap:#FF6B70; --mem:#3CCB8E; --ver:#8496A8;
+  --stage-if:#5FA3FF; --stage-id:#A986F5; --stage-ex:#F0A63A; --stage-mem:#3CCB8E; --stage-wb:#F07AB8;
+  --t0:#5FA3FF; --t1:#F0A63A; --t2:#3CCB8E; --t3:#F07AB8; --t4:#A986F5; --t5:#3CC6D6; --t6:#E3C04A; --t7:#FF6B70;
+  --hatch:rgba(169,134,245,.22); color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0C1219; --surface:#131B24; --surface-2:#18222D; --ink:#E1E8EF; --muted:#8D9BA9; --line:#2B3947; --grid:#1B2631;
+  --accent:#5FA3FF; --accent-ink:#06121F;
+  --data:#5FA3FF; --fwd:#F0A63A; --ctl:#A986F5; --trap:#FF6B70; --mem:#3CCB8E; --ver:#8496A8;
+  --stage-if:#5FA3FF; --stage-id:#A986F5; --stage-ex:#F0A63A; --stage-mem:#3CCB8E; --stage-wb:#F07AB8;
+  --t0:#5FA3FF; --t1:#F0A63A; --t2:#3CCB8E; --t3:#F07AB8; --t4:#A986F5; --t5:#3CC6D6; --t6:#E3C04A; --t7:#FF6B70;
+  --hatch:rgba(169,134,245,.22); color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.wrap{max-width:1640px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+h1,h2,h3{font-family:var(--f-display);font-weight:700;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(28px,3.2vw,40px);line-height:1.05}
+h2{font-size:20px}
+h3{font-size:16px}
+p{margin:0}
+code,.mono{font-family:var(--f-mono);font-size:12px}
+.eyebrow{font-family:var(--f-mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.lede{color:var(--muted);max-width:78ch}
+header.top{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between}
+header.top .ttl{display:flex;flex-direction:column;gap:6px;min-width:0}
+.specs{display:flex;flex-wrap:wrap;gap:6px}
+.spec{font-family:var(--f-mono);font-size:11px;padding:3px 8px;border:1px solid var(--line);border-radius:3px;background:var(--surface);color:var(--muted)}
+.spec b{color:var(--ink);font-weight:600}
+
+/* toolbar */
+.toolbar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;padding:8px 10px;background:var(--surface);border:1px solid var(--line);border-radius:6px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
+.tabs{display:flex;gap:2px;background:var(--surface-2);padding:3px;border-radius:5px;border:1px solid var(--line)}
+.tabs button{font:600 13px var(--f-body);border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:3px;cursor:pointer}
+.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.transport{display:flex;gap:6px;align-items:center}
+.btn{font:500 13px var(--f-body);display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 10px;border-radius:4px;cursor:pointer}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn svg{width:14px;height:14px;fill:currentColor}
+button:focus-visible,select:focus-visible,input:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.speed{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.speed input{width:120px;accent-color:var(--accent)}
+.speed output{font-family:var(--f-mono);color:var(--ink);min-width:3.5em}
+.cyc{margin-left:auto;font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.cyc b{color:var(--ink);font-size:15px;margin-left:6px}
+
+/* main */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:16px;align-items:start}
+@media (max-width:1100px){.main{grid-template-columns:minmax(0,1fr)}}
+.canvas{background:var(--surface);border:1px solid var(--line);border-radius:6px;min-width:0;display:flex;flex-direction:column}
+.scroll{overflow-x:auto;overflow-y:hidden}
+#diagram{display:block;width:100%;min-width:1080px;height:auto;user-select:none}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted);align-items:center}
+.legend .lg{display:inline-flex;align-items:center;gap:6px;cursor:pointer;border:0;background:none;color:inherit;font:inherit;padding:2px 4px;border-radius:3px}
+.legend .lg[aria-pressed="false"]{opacity:.35;text-decoration:line-through}
+.legend svg{width:30px;height:10px}
+.legend .note{margin-left:auto;font-size:11px}
+
+/* svg styling */
+.band{fill:var(--surface-2)}
+.bandlbl{font:700 15px var(--f-display);letter-spacing:.04em}
+.occ{font:500 11px var(--f-mono);fill:var(--muted)}
+.occ.live{fill:var(--ink)}
+.boundary{fill:none;stroke:var(--line);stroke-dasharray:6 5;stroke-width:1.2}
+.boundlbl{font:600 11px var(--f-mono);fill:var(--muted);letter-spacing:.06em}
+.node rect.box{fill:var(--surface);stroke:var(--line);stroke-width:1.2;transition:stroke .2s,fill .2s}
+.node{cursor:pointer}
+.node:hover rect.box{stroke:var(--accent)}
+.node .nt{font:700 14.5px var(--f-display);fill:var(--ink);letter-spacing:.02em}
+.node .ns{font:400 10.5px var(--f-mono);fill:var(--muted)}
+.node .nl{font:400 10.5px var(--f-body);fill:var(--muted)}
+.node.ext rect.box{fill:var(--surface-2);stroke-dasharray:4 3}
+.node.ver rect.box{stroke-dasharray:2 3}
+.node.sel rect.box{stroke:var(--accent);stroke-width:2.4}
+.node.live rect.box{stroke:var(--accent);stroke-width:1.8}
+.node.trapped rect.box{stroke:var(--trap);stroke-width:2.4}
+.node.stalled rect.box{stroke:var(--ctl);stroke-width:2.4}
+.bar rect.reg{fill:var(--surface-2);stroke:var(--ink);stroke-opacity:.45;stroke-width:1.2;cursor:pointer;transition:fill .25s}
+.bar.pulse rect.reg{fill:var(--accent)}
+.bar text{font:600 11px var(--f-mono);fill:var(--muted);letter-spacing:.08em;pointer-events:none}
+.bar.pulse text{fill:var(--accent-ink)}
+.bar.flushed rect.reg{stroke:var(--trap);stroke-opacity:1;stroke-width:2}
+.bar.held rect.reg{stroke:var(--ctl);stroke-opacity:1;stroke-width:2}
+.edge path.ln{fill:none;stroke-width:1.6;transition:opacity .25s,stroke-width .2s}
+.edge path.hit{fill:none;stroke:transparent;stroke-width:12;cursor:pointer}
+.edge.t-data path.ln{stroke:var(--data)}
+.edge.t-fwd path.ln{stroke:var(--fwd);stroke-width:2}
+.edge.t-ctl path.ln{stroke:var(--ctl);stroke-dasharray:5 4}
+.edge.t-trap path.ln{stroke:var(--trap);stroke-dasharray:7 3}
+.edge.t-mem path.ln{stroke:var(--mem);stroke-width:2}
+.edge.t-ver path.ln{stroke:var(--ver);stroke-dasharray:2 4}
+.edge.on path.ln{stroke-width:2.8}
+.edge.hidden{display:none}
+.elbl{font:500 10.5px var(--f-mono);pointer-events:none}
+.elbl rect{fill:var(--surface);stroke:var(--line)}
+.elbl text{fill:var(--ink)}
+svg.focus .edge:not(.on) path.ln{opacity:.12}
+svg.focus .node:not(.on):not(.sel) {opacity:.38}
+svg.focus .bar:not(.on){opacity:.5}
+.p-data{fill:var(--data)} .p-fwd{fill:var(--fwd)} .p-ctl{fill:var(--ctl)} .p-trap{fill:var(--trap)} .p-mem{fill:var(--mem)} .p-ver{fill:var(--ver)}
+.tok{stroke:var(--surface);stroke-width:1.5}
+.mk-data{fill:var(--data)} .mk-fwd{fill:var(--fwd)} .mk-ctl{fill:var(--ctl)} .mk-trap{fill:var(--trap)} .mk-mem{fill:var(--mem)} .mk-ver{fill:var(--ver)}
+.dotgrid{fill:var(--grid)}
+.stagechip{font:600 10px var(--f-mono)}
+
+/* panel */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:6px;display:flex;flex-direction:column;min-width:0;max-height:calc(100vh - 110px);position:sticky;top:calc(env(safe-area-inset-top,0px) + 66px)}
+@media (max-width:1100px){.panel{position:static;max-height:none}}
+.panel .pscroll{overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:14px}
+.insp{border:1px solid var(--accent);border-radius:5px;padding:12px 12px 12px;display:flex;flex-direction:column;gap:8px;background:var(--surface-2)}
+.insp .ih{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.insp .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:2px 4px}
+.kv{display:grid;grid-template-columns:88px minmax(0,1fr);gap:4px 10px;font-size:12.5px}
+.kv dt{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding-top:2px}
+.kv dd{margin:0;min-width:0}
+.kv ul{margin:0;padding-left:16px}
+pre.code{margin:0;font:400 11px/1.45 var(--f-mono);background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:8px 10px;overflow-x:auto;white-space:pre;color:var(--ink)}
+.file{font-family:var(--f-mono);font-size:11px;color:var(--accent)}
+.sec{display:flex;flex-direction:column;gap:8px}
+.sec>h3{display:flex;align-items:center;gap:8px}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.pathlist{display:flex;flex-direction:column;gap:10px}
+.pgroup{display:flex;flex-direction:column;gap:4px}
+.pgroup .gl{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted)}
+.pbtn{text-align:left;font:500 13px var(--f-body);border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 9px;border-radius:4px;cursor:pointer}
+.pbtn[aria-pressed="true"]{border-color:var(--accent);background:var(--surface-2);box-shadow:inset 3px 0 0 var(--accent)}
+ol.steps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:5px;font-size:12.5px}
+ol.steps li{cursor:pointer;color:var(--muted);padding:2px 4px;border-radius:3px}
+ol.steps li.done{color:var(--ink)}
+ol.steps li.cur{color:var(--ink);background:var(--surface-2);outline:1px solid var(--accent)}
+.caption{font-size:13px;padding:10px 12px;border-left:3px solid var(--accent);background:var(--surface-2);border-radius:0 4px 4px 0;min-height:3.2em}
+select{font:500 13px var(--f-body);padding:6px 8px;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:var(--ink);max-width:100%}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{font:600 12px var(--f-mono);border:0;background:var(--surface);color:var(--muted);padding:5px 10px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chips{display:flex;flex-wrap:wrap;gap:4px}
+.chip{font:500 11px var(--f-mono);padding:2px 7px;border-radius:10px;border:1px solid var(--line);color:var(--muted);background:var(--surface)}
+.chip.on.c-ctl{background:var(--ctl);border-color:var(--ctl);color:var(--surface)}
+.chip.on.c-fwd{background:var(--fwd);border-color:var(--fwd);color:var(--surface)}
+.chip.on.c-trap{background:var(--trap);border-color:var(--trap);color:var(--surface)}
+.chip.on.c-mem{background:var(--mem);border-color:var(--mem);color:var(--surface)}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.stat{border:1px solid var(--line);border-radius:4px;padding:6px 8px;background:var(--surface-2)}
+.stat .k{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.stat .v{font:600 16px var(--f-mono);font-variant-numeric:tabular-nums}
+.listing{font:400 11.5px/1.6 var(--f-mono);border:1px solid var(--line);border-radius:4px;overflow:auto;max-height:280px}
+.listing .ln{display:grid;grid-template-columns:30px 54px minmax(0,1fr);gap:6px;padding:0 8px;white-space:pre;cursor:pointer}
+.listing .ln:hover{background:var(--surface-2)}
+.listing .ln.lbl{color:var(--muted);cursor:default}
+.listing .stg{font-weight:600;font-size:10px;border-radius:2px;text-align:center;color:var(--surface);align-self:center;line-height:1.5}
+.listing .addr{color:var(--muted)}
+.listing .cm{color:var(--muted)}
+.journey{display:flex;flex-direction:column;gap:4px;font-size:12px}
+.journey .j{display:grid;grid-template-columns:40px 22px minmax(0,1fr);gap:6px;align-items:baseline}
+.journey .j .c{font-family:var(--f-mono);color:var(--muted);font-size:11px}
+.journey .j .s{font:600 11px var(--f-mono);text-align:center;border-radius:2px;color:var(--surface)}
+
+/* lower sheets */
+.sheets{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+@media (max-width:1100px){.sheets{grid-template-columns:minmax(0,1fr)}}
+.sheet{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.sheet .sh{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.chartwrap{overflow:auto;max-height:420px;border:1px solid var(--line);border-radius:4px}
+table.pc{border-collapse:separate;border-spacing:0;font:500 11px var(--f-mono);font-variant-numeric:tabular-nums}
+table.pc th,table.pc td{padding:0;height:22px;min-width:24px;text-align:center;border-right:1px solid var(--grid);border-bottom:1px solid var(--grid)}
+table.pc thead th{position:sticky;top:0;background:var(--surface-2);color:var(--muted);z-index:2;font-weight:500}
+table.pc th.ins{position:sticky;left:0;background:var(--surface);text-align:left;padding:0 10px 0 8px;min-width:210px;max-width:260px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;z-index:1;cursor:pointer;font-weight:500;color:var(--ink)}
+table.pc thead th.ins{z-index:3;background:var(--surface-2);color:var(--muted);cursor:default}
+table.pc tr.sel th.ins{box-shadow:inset 3px 0 0 var(--accent);background:var(--surface-2)}
+table.pc td.cur{background:var(--surface-2)}
+table.pc td .cell{display:block;margin:2px;border-radius:2px;line-height:18px;color:var(--surface);font-weight:600}
+table.pc td .cell.st{background:repeating-linear-gradient(135deg,var(--hatch) 0 4px,transparent 4px 8px)!important;color:var(--ctl);outline:1px solid var(--ctl)}
+table.pc td .cell.sq{background:transparent!important;color:var(--trap);outline:1px dashed var(--trap)}
+table.pc tr.squashed th.ins{color:var(--muted);text-decoration:line-through}
+.regs{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:4px;font:400 11.5px var(--f-mono)}
+.reg{display:flex;justify-content:space-between;gap:6px;padding:3px 7px;border:1px solid var(--line);border-radius:3px;background:var(--surface-2)}
+.reg .r{color:var(--muted)}
+.reg.chg{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.reg.unk .v{color:var(--muted)}
+.log{font:400 11.5px/1.55 var(--f-mono);border:1px solid var(--line);border-radius:4px;padding:6px 8px;max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:2px}
+.log .e{display:grid;grid-template-columns:34px minmax(0,1fr);gap:8px}
+.log .e .c{color:var(--muted)}
+.log .e.k-trap{color:var(--trap)} .log .e.k-ctl{color:var(--ctl)} .log .e.k-fwd{color:var(--fwd)} .log .e.k-ret{color:var(--ink)} .log .e.k-mem{color:var(--mem)} .log .e.k-info{color:var(--muted)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+.notes .sheet p,.notes .sheet li{font-size:13px;color:var(--muted)}
+.notes ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px}
+.figs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.fig{border:1px solid var(--line);border-radius:4px;padding:6px 8px;background:var(--surface-2)}
+.fig .k{font-size:11px;color:var(--muted)}
+.fig .v{font:600 15px var(--f-mono);font-variant-numeric:tabular-nums}
+.fig .s{font:400 10.5px var(--f-mono);color:var(--muted)}
+#tip{position:fixed;pointer-events:none;z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 9px;font-size:12px;max-width:320px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
+#tip b{font-family:var(--f-mono);font-size:11.5px}
+[data-mode-only]{display:none}
+body[data-mode="sim"] [data-mode-only~="sim"],body[data-mode="path"] [data-mode-only~="path"],body[data-mode="explore"] [data-mode-only~="explore"]{display:flex}
+@media (prefers-reduced-motion: reduce){ .node rect.box,.bar rect.reg,.edge path.ln{transition:none} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="ttl">
+      <span class="eyebrow">rv32i_5stage_core · rtl/ · derived from rv32i_core.sv and its submodules</span>
+      <h1>RV32I 5-Stage Core Explorer</h1>
+      <p class="lede">Every block, wire and rule below comes from the RTL. Run a program through a cycle-accurate model of the pipeline, trace a single instruction class end to end, or click any block to read what it does and where it lives in the source.</p>
+    </div>
+    <div class="specs" aria-label="Core parameters">
+      <span class="spec">ISA <b>RV32I</b></span>
+      <span class="spec">stages <b>IF ID EX MEM WB</b></span>
+      <span class="spec">BP_MODE <b>0 | 1</b></span>
+      <span class="spec">FWD_PRECOMP <b>0 | 1</b></span>
+      <span class="spec">RVFI_EN <b>1 sim / 0 synth</b></span>
+      <span class="spec">RESET_PC <b>0x1000</b> (tb)</span>
+    </div>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="View and animation controls">
+    <div class="tabs" role="tablist" aria-label="Mode">
+      <button role="tab" id="tab-sim" data-mode="sim" aria-selected="true">Run a program</button>
+      <button role="tab" id="tab-path" data-mode="path" aria-selected="false">Trace a path</button>
+      <button role="tab" id="tab-explore" data-mode="explore" aria-selected="false">Explore</button>
+    </div>
+    <div class="transport">
+      <button class="btn primary" id="btn-play" aria-label="Pause"><svg viewBox="0 0 16 16" id="ico-play"><rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/></svg><span id="lbl-play">Pause</span></button>
+      <button class="btn" id="btn-step" title="Step (→)"><svg viewBox="0 0 16 16"><path d="M2 2l8 6-8 6z"/><rect x="11" y="2" width="3" height="12"/></svg>Step</button>
+      <button class="btn" id="btn-restart" title="Restart"><svg viewBox="0 0 16 16"><path d="M8 2a6 6 0 1 1-5.7 4.1l1.9.6A4 4 0 1 0 8 4v2.5L4.5 3 8 0z"/></svg>Restart</button>
+    </div>
+    <label class="speed" for="speed">Speed <input type="range" id="speed" min="-2" max="2" step="0.25" value="0"><output id="speed-out">1.00×</output></label>
+    <div class="cyc" id="cyc-readout" data-mode-only="sim">cycle <b id="cyc-n">0</b></div>
+  </div>
+
+  <div class="main">
+    <section class="canvas" aria-label="Pipeline datapath diagram">
+      <div class="scroll"><svg id="diagram" viewBox="0 0 1500 790" role="img" aria-label="Datapath of rv32i_core: five stages, four pipeline registers, hazard, forwarding, redirect and trap logic, external memories and verification harness"></svg></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <aside class="panel" aria-label="Details">
+      <div class="pscroll" id="panel">
+        <div id="insp-slot"></div>
+        <!-- SIM -->
+        <div class="sec" data-mode-only="sim" style="flex-direction:column">
+          <h3>Program</h3>
+          <div class="row">
+            <select id="scenario" aria-label="Example program"></select>
+          </div>
+          <div class="row small"><span class="muted">BP_MODE</span>
+            <div class="seg" role="group" aria-label="Branch mode"><button id="bp0" aria-pressed="true">0</button><button id="bp1" aria-pressed="false">1</button></div>
+            <span class="muted" id="bp-desc">resolve in EX</span>
+          </div>
+          <p class="small muted" id="scen-desc"></p>
+          <div class="stats">
+            <div class="stat"><div class="k">retired</div><div class="v" id="st-ret">0</div></div>
+            <div class="stat"><div class="k">load-use</div><div class="v" id="st-lu">0</div></div>
+            <div class="stat"><div class="k">redir EX / ID</div><div class="v" id="st-rd">0 / 0</div></div>
+          </div>
+          <div class="chips" id="sigchips" aria-label="Control signals this cycle"></div>
+          <div class="listing" id="listing" aria-label="Program listing"></div>
+          <div class="sec" id="journey-sec"><h3>Instruction journey</h3><p class="small muted" id="journey-hint">Click a line in the listing or a row in the pipeline chart to follow one instruction.</p><div class="journey" id="journey"></div></div>
+        </div>
+        <!-- PATH -->
+        <div class="sec" data-mode-only="path" style="flex-direction:column">
+          <h3>Pick a path</h3>
+          <div class="pathlist" id="pathlist"></div>
+          <div class="caption" id="caption" aria-live="polite"></div>
+          <ol class="steps" id="steps"></ol>
+        </div>
+        <!-- EXPLORE -->
+        <div class="sec" data-mode-only="explore" style="flex-direction:column">
+          <h3>Blocks</h3>
+          <p class="small muted">All edges flow continuously. Click a block or a wire for its detail; click a legend entry to hide that kind of connection.</p>
+          <div class="pathlist" id="modlist"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="sheets" data-mode-only="sim">
+    <section class="sheet">
+      <div class="sh"><h2>Pipeline chart</h2><span class="small muted">F D X M W per cycle · hatched = stalled · dashed ✕ = squashed</span></div>
+      <div class="chartwrap" id="chartwrap"><table class="pc" id="chart"></table></div>
+    </section>
+    <section class="sheet">
+      <div class="sh"><h2>Architectural state</h2><span class="small muted">after the last clock edge</span></div>
+      <div class="regs" id="regs"></div>
+      <div id="memview" class="regs"></div>
+      <div class="sh"><h3>Event log</h3><span class="small muted">newest first</span></div>
+      <div class="log" id="log" aria-live="off"></div>
+    </section>
+  </div>
+
+  <div class="notes">
+    <section class="sheet">
+      <h2>How to read the wires</h2>
+      <ul>
+        <li>Everything inside <code>rv32i_core</code> is synchronous to one clock. A solid wire is combinational and settles within the cycle; the pipeline registers (tall bars) latch on the rising edge.</li>
+        <li>There is no asynchronous messaging, no bus protocol and no retry loop in this design. The memories answer in the same cycle with no wait states, so nothing ever waits on a response.</li>
+        <li>The two recovery mechanisms are a one-cycle load-use stall (replay the ID instruction) and a redirect from EX that repairs a mispredicted or unpredicted control transfer by flushing the younger instructions.</li>
+        <li>Errors are traps. ECALL, EBREAK, an illegal encoding, a misaligned load/store or a misaligned branch/jump target stop the core: there are no CSRs and no trap vector.</li>
+        <li>FWD_PRECOMP changes where the forwarding compare happens (ID and registered, or EX), not what it selects; the model here uses the EX rule, which the checker asserts both variants obey.</li>
+      </ul>
+    </section>
+    <section class="sheet">
+      <h2>Measured results from results/</h2>
+      <div class="figs">
+        <div class="fig"><div class="k">CPI, 7 benchmarks</div><div class="v">1.515 → 1.323</div><div class="s">BP_MODE 0 → 1 · cpi.md</div></div>
+        <div class="fig"><div class="k">F_max, BP0 FWD_PRECOMP=1</div><div class="v">230.9 MHz</div><div class="s">T_min 4.330 ns · Sky130 HD · ppa.md</div></div>
+        <div class="fig"><div class="k">Precompute effect (BP0)</div><div class="v">5.549 → 4.330 ns</div><div class="s">FWD_PRECOMP 0 → 1</div></div>
+        <div class="fig"><div class="k">Mutants caught</div><div class="v">73 / 73</div><div class="s">48 assertions, all fired · mutants.txt</div></div>
+        <div class="fig"><div class="k">Random programs</div><div class="v">200 / 200</div><div class="s">161 597 retires compared vs ISS</div></div>
+        <div class="fig"><div class="k">Cover bins</div><div class="v">143 / 143</div><div class="s">115 / 117 line blocks, 2 excluded</div></div>
+      </div>
+    </section>
+  </div>
+</div>
+<div id="tip" hidden></div>
+
+<script>
+// <SIM> ======================================================================================================
+// Cycle-accurate model of rtl/rv32i_core.sv (+ rv32i_decode, rv32i_regfile, rv32i_hazard, rv32i_alu, rv32i_branch,
+// rv32i_lsu) and the tb_core memory. Each function mirrors the always_comb / always_ff block named in its comment.
+const OP={LUI:0x37,AUIPC:0x17,JAL:0x6f,JALR:0x67,BRANCH:0x63,LOAD:0x03,STORE:0x23,IMM:0x13,REG:0x33,FENCE:0x0f,SYSTEM:0x73};
+const ALU={ADD:0,SUB:1,SLL:2,SLT:3,SLTU:4,XOR:5,SRL:6,SRA:7,OR:8,AND:9};
+const ALUN=['ADD','SUB','SLL','SLT','SLTU','XOR','SRL','SRA','OR','AND'];
+const A_RS1=0,A_PC=1,A_ZERO=2, FWD_NONE=0,FWD_MEM=1,FWD_WB=2;
+const u32=v=>v>>>0, sext=(v,b)=>(v<<(32-b))>>(32-b);
+const hex=v=>'0x'+u32(v).toString(16).padStart(8,'0');
+const hexs=v=>'0x'+u32(v).toString(16);
+
+// rv32i_decode.sv
+function decode(instr){
+  instr=u32(instr);
+  const opcode=instr&0x7f, funct3=(instr>>>12)&7, funct7=instr>>>25;
+  const d={rs1:(instr>>>15)&31, rs2:(instr>>>20)&31, rd:(instr>>>7)&31, funct3, opcode,
+    imm:sext(instr>>>20,12), alu_op:ALU.ADD, a_sel:A_RS1, b_imm:1, reg_write:0, mem_read:0, mem_write:0,
+    is_branch:0, is_jal:0, is_jalr:0, uses_rs1:0, uses_rs2:0, is_halt:0, is_illegal:0};
+  const imm_i=sext(instr>>>20,12);
+  const imm_s=sext(((instr>>>25)<<5)|((instr>>>7)&31),12);
+  const imm_b=sext((((instr>>>31)&1)<<12)|(((instr>>>7)&1)<<11)|(((instr>>>25)&0x3f)<<5)|(((instr>>>8)&0xf)<<1),13);
+  const imm_u=(instr&0xfffff000)|0;
+  const imm_j=sext((((instr>>>31)&1)<<20)|(((instr>>>12)&0xff)<<12)|(((instr>>>20)&1)<<11)|(((instr>>>21)&0x3ff)<<1),21);
+  switch(opcode){
+    case OP.LUI: d.imm=imm_u; d.a_sel=A_ZERO; d.reg_write=1; break;
+    case OP.AUIPC: d.imm=imm_u; d.a_sel=A_PC; d.reg_write=1; break;
+    case OP.JAL: d.imm=imm_j; d.is_jal=1; d.reg_write=1; break;
+    case OP.JALR: d.imm=imm_i; d.is_jalr=1; d.reg_write=1; d.uses_rs1=1; if(funct3!==0) d.is_illegal=1; break;
+    case OP.BRANCH: d.imm=imm_b; d.is_branch=1; d.uses_rs1=1; d.uses_rs2=1; if(funct3===2||funct3===3) d.is_illegal=1; break;
+    case OP.LOAD: d.imm=imm_i; d.mem_read=1; d.reg_write=1; d.uses_rs1=1; if(![0,1,2,4,5].includes(funct3)) d.is_illegal=1; break;
+    case OP.STORE: d.imm=imm_s; d.mem_write=1; d.uses_rs1=1; d.uses_rs2=1; if(![0,1,2].includes(funct3)) d.is_illegal=1; break;
+    case OP.IMM: d.imm=imm_i; d.reg_write=1; d.uses_rs1=1;
+      switch(funct3){ case 0:d.alu_op=ALU.ADD;break; case 2:d.alu_op=ALU.SLT;break; case 3:d.alu_op=ALU.SLTU;break;
+        case 4:d.alu_op=ALU.XOR;break; case 6:d.alu_op=ALU.OR;break; case 7:d.alu_op=ALU.AND;break;
+        case 1:d.alu_op=ALU.SLL; if(funct7!==0) d.is_illegal=1; break;
+        default: d.alu_op=(funct7===0x20)?ALU.SRA:ALU.SRL; if(funct7!==0&&funct7!==0x20) d.is_illegal=1; }
+      break;
+    case OP.REG: d.b_imm=0; d.reg_write=1; d.uses_rs1=1; d.uses_rs2=1;
+      { const t={0:null,1:ALU.SLL,2:ALU.SLT,3:ALU.SLTU,4:ALU.XOR,5:null,6:ALU.OR,7:ALU.AND};
+        if(funct3===0){ d.alu_op=(funct7===0x20)?ALU.SUB:ALU.ADD; if(funct7!==0&&funct7!==0x20) d.is_illegal=1; }
+        else if(funct3===5){ d.alu_op=(funct7===0x20)?ALU.SRA:ALU.SRL; if(funct7!==0&&funct7!==0x20) d.is_illegal=1; }
+        else { d.alu_op=t[funct3]; if(funct7!==0) d.is_illegal=1; } }
+      break;
+    case OP.FENCE: if(funct3!==0) d.is_illegal=1; break;
+    case OP.SYSTEM: if(instr===0x00000073||instr===0x00100073) d.is_halt=1; else d.is_illegal=1; break;
+    default: d.is_illegal=1;
+  }
+  if(d.is_illegal){ d.reg_write=d.mem_read=d.mem_write=d.is_branch=d.is_jal=d.is_jalr=d.uses_rs1=d.uses_rs2=0; }
+  return d;
+}
+// rv32i_alu.sv
+function alu(a,b,op){ const sh=b&31; a|=0; b|=0;
+  switch(op){ case ALU.ADD:return (a+b)|0; case ALU.SUB:return (a-b)|0; case ALU.SLL:return a<<sh;
+    case ALU.SLT:return a<b?1:0; case ALU.SLTU:return u32(a)<u32(b)?1:0; case ALU.XOR:return a^b;
+    case ALU.SRL:return (a>>>sh)|0; case ALU.SRA:return a>>sh; case ALU.OR:return a|b; case ALU.AND:return a&b; default:return 0; } }
+// rv32i_branch.sv
+function branch(a,b,f3){ const eq=(a|0)===(b|0), lt=(a|0)<(b|0), ltu=u32(a)<u32(b);
+  switch(f3){case 0:return eq;case 1:return !eq;case 4:return lt;case 5:return !lt;case 6:return ltu;case 7:return !ltu;default:return false;} }
+// rv32i_lsu.sv
+function lsu(funct3,lo,store_data,load_word){
+  let wstrb,wdata; const f=funct3&3;
+  if(f===0){ wstrb=1<<lo; const b=store_data&0xff; wdata=(b|(b<<8)|(b<<16)|(b<<24))|0; }
+  else if(f===1){ wstrb=3<<(lo&2); const h=store_data&0xffff; wdata=(h|(h<<16))|0; }
+  else { wstrb=0xf; wdata=store_data|0; }
+  const sh=u32(load_word)>>>(lo*8); let lv;
+  switch(funct3){case 0:lv=sext(sh&0xff,8);break;case 1:lv=sext(sh&0xffff,16);break;case 4:lv=sh&0xff;break;case 5:lv=sh&0xffff;break;default:lv=sh|0;}
+  const mis= f===1 ? (lo&1)===1 : f===2 ? lo!==0 : false;
+  return {wstrb,wdata,load_value:lv,misaligned:mis};
+}
+
+function resetState(prog){
+  const mem=new Map(); prog.words.forEach((w,i)=>mem.set((prog.base>>>2)+i,u32(w)));
+  const z={valid:0,tag:null};
+  return {pc:prog.base, ifid:{valid:0,pc:0,instr:0,tag:null},
+    idex:{valid:0,reg_write:0,mem_read:0,mem_write:0,is_branch:0,is_jal:0,is_jalr:0,trap:0,pred_taken:0,pc:0,imm:0,rs1_data:0,rs2_data:0,rs1:0,rs2:0,rd:0,alu_op:0,a_sel:0,b_imm:0,funct3:0,uses1:0,uses2:0,halt:0,ill:0,tag:null},
+    exmem:{valid:0,rw:0,mem_read:0,mem_write:0,alu:0,store:0,rd:0,funct3:0,halt:0,ill:0,tag:null},
+    memwb:{valid:0,rw:0,data:0,rd:0,halt:0,ill:0,misal:0,tag:null},
+    halted:0, regs:new Array(32).fill(null), mem, fetchTag:null};
+}
+
+// One clock cycle: evaluate every always_comb from the current flops, then compute the next flop values (always_ff).
+function cycle(S,BP){
+  const memRd=a=>S.mem.get(u32(a)>>>2)??0;
+  const valid_d=S.ifid.valid, d=decode(S.ifid.instr), e=S.idex, m=S.exmem, w=S.memwb;
+  // ---- ID: regfile read with write-first bypass (rv32i_regfile.sv)
+  const rfread=a=>a===0?0:(w.rw&&w.rd===a?w.data:S.regs[a]);
+  const rs1_data_d=rfread(d.rs1), rs2_data_d=rfread(d.rs2);
+  const byp1=valid_d&&d.uses_rs1&&d.rs1!==0&&w.rw&&w.rd===d.rs1, byp2=valid_d&&d.uses_rs2&&d.rs2!==0&&w.rw&&w.rd===d.rs2;
+  // ---- EX: forwarding rule (rv32i_hazard.sv, EX form; FWD_PRECOMP=1 registers the same select computed in ID)
+  const fsel=r=>(m.rw&&m.rd!==0&&m.rd===r)?FWD_MEM:(w.rw&&w.rd!==0&&w.rd===r)?FWD_WB:FWD_NONE;
+  const fwd_a=fsel(e.rs1), fwd_b=fsel(e.rs2);
+  const pick=(s,v)=>s===FWD_MEM?m.alu:s===FWD_WB?w.data:v;
+  const rs1f=pick(fwd_a,e.rs1_data)|0, rs2f=pick(fwd_b,e.rs2_data)|0;
+  const A=e.a_sel===A_PC?e.pc:e.a_sel===A_ZERO?0:rs1f, B=e.b_imm?e.imm:rs2f;
+  const y=alu(A,B,e.alu_op);
+  const br_taken=!!(e.is_branch&&branch(rs1f,rs2f,e.funct3));
+  const pc4=u32(e.pc+4), tadd=u32(e.pc+e.imm), jt=u32(y&~1);
+  const misal=!!(e.valid&&(((e.is_jal||br_taken)&&(tadd&3))||(e.is_jalr&&(jt&2))));
+  const mispred=BP?!!(e.is_branch&&(br_taken!==!!e.pred_taken)):br_taken;
+  const redirect_ex=!!(e.valid&&!misal&&(mispred||e.is_jalr||(!BP&&e.is_jal)));
+  const target_ex=e.is_jalr?jt:(BP&&!br_taken)?pc4:tadd;
+  const trap_ex=!!(e.valid&&(e.trap||misal));
+  const result_e=(e.is_jal||e.is_jalr)?pc4:u32(y);
+  // ---- MEM (rv32i_lsu.sv + access control)
+  const lo=m.alu&3, L0=lsu(m.funct3,lo,m.store,0);
+  const access=!!(m.valid&&(m.mem_read||m.mem_write)), trap_mem=access&&L0.misaligned;
+  const daddr=u32(m.alu&~3), dre=!!(m.valid&&m.mem_read&&!L0.misaligned);
+  const dwe=(m.valid&&m.mem_write&&!L0.misaligned)?L0.wstrb:0;
+  const rdata=dre?memRd(daddr):0xDEADBEEF;
+  const L=lsu(m.funct3,lo,m.store,rdata);
+  // ---- ID: hazard + static prediction
+  const stall=!!(valid_d&&e.mem_read&&e.rd!==0&&((d.uses_rs1&&d.rs1===e.rd)||(d.uses_rs2&&d.rs2===e.rd)));
+  const fpre=r=>(e.reg_write&&e.rd!==0&&e.rd===r)?FWD_MEM:(m.rw&&m.rd!==0&&m.rd===r)?FWD_WB:FWD_NONE;
+  const fwd_a_d=fpre(d.rs1), fwd_b_d=fpre(d.rs2);
+  const pred_taken_d=!!(BP&&d.is_branch&&d.imm<0);
+  const target_id=u32(S.ifid.pc+d.imm);
+  const redirect_id=!!(BP&&valid_d&&!stall&&!redirect_ex&&!trap_ex&&!trap_mem&&!S.halted&&(d.is_jal||pred_taken_d)&&(target_id&3)===0);
+  // ---- IF: next-PC priority
+  let pc_n, pcwhy;
+  if(S.halted){pc_n=S.pc;pcwhy='halted';}
+  else if(redirect_ex){pc_n=target_ex;pcwhy='redirect_ex';}
+  else if(stall){pc_n=S.pc;pcwhy='stall_d';}
+  else if(redirect_id){pc_n=target_id;pcwhy='redirect_id';}
+  else {pc_n=u32(S.pc+4);pcwhy='pc+4';}
+  const flush_if_id=redirect_ex||redirect_id||trap_ex||trap_mem||!!S.halted;
+  const flush_id_ex=redirect_ex||trap_ex||trap_mem||!!S.halted;
+  const imem_rdata=memRd(S.pc);
+
+  // ---- next state (always_ff)
+  const N={...S, regs:S.regs.slice(), mem:new Map(S.mem)};
+  N.pc=pc_n;
+  N.fetchTag=(!flush_if_id&&stall)?S.fetchTag:null;   // display bookkeeping: the fetch slot keeps its instruction only while held
+  if(flush_if_id) N.ifid={...S.ifid,valid:0,tag:null};
+  else if(!stall) N.ifid={valid:1,pc:S.pc,instr:imem_rdata,tag:S.fetchTag};
+  const bubble=flush_id_ex||stall||!valid_d;
+  N.idex={valid:bubble?0:1, reg_write:bubble?0:d.reg_write, mem_read:bubble?0:d.mem_read, mem_write:bubble?0:d.mem_write,
+    is_branch:bubble?0:d.is_branch, is_jal:bubble?0:d.is_jal, is_jalr:bubble?0:d.is_jalr, trap:bubble?0:(d.is_halt||d.is_illegal),
+    pred_taken:bubble?0:+pred_taken_d, pc:S.ifid.pc, imm:d.imm, rs1_data:rs1_data_d, rs2_data:rs2_data_d, rs1:d.rs1, rs2:d.rs2, rd:d.rd,
+    alu_op:d.alu_op, a_sel:d.a_sel, b_imm:d.b_imm, funct3:d.funct3, uses1:d.uses_rs1, uses2:d.uses_rs2, halt:d.is_halt, ill:d.is_illegal,
+    tag:bubble?null:S.ifid.tag};
+  if(trap_mem) N.exmem={valid:0,rw:0,mem_read:0,mem_write:0,alu:result_e,store:rs2f,rd:e.rd,funct3:e.funct3,halt:e.halt,ill:e.ill||misal,tag:null};
+  else N.exmem={valid:e.valid,rw:(e.reg_write&&!misal)?1:0,mem_read:e.mem_read,mem_write:e.mem_write,alu:result_e,store:rs2f,rd:e.rd,funct3:e.funct3,
+    halt:e.halt,ill:(e.ill||misal)?1:0,tag:e.valid?e.tag:null};
+  N.memwb={valid:m.valid,rw:(m.rw&&!trap_mem)?1:0,data:m.mem_read?L.load_value:m.alu,rd:m.rd,halt:m.halt,ill:m.ill,misal:trap_mem?1:0,tag:m.valid?m.tag:null};
+  if(w.rw&&w.rd!==0) N.regs[w.rd]=w.data|0;                                   // regfile write port
+  if(dwe){ const old=N.mem.get(daddr>>>2)??0; let v=old;                       // tb_core byte-strobed write
+    for(let i=0;i<4;i++) if(dwe&(1<<i)) v=(v&~(0xff<<(8*i)))|(L.wdata&(0xff<<(8*i)));
+    N.mem.set(daddr>>>2,u32(v)); }
+  N.halted=(S.halted||trap_ex||trap_mem)?1:0;
+  const retire=w.valid?{tag:w.tag,rd:w.rw?w.rd:0,data:w.data,halt:!!(w.halt||w.ill||w.misal),trap:!!(w.ill||w.misal)}:null;
+  return {N, sig:{valid_d,d,stall,fwd_a,fwd_b,fwd_a_d,fwd_b_d,byp1,byp2,rs1f,rs2f,A,B,y,br_taken,misal,mispred,redirect_ex,target_ex,trap_ex,result_e,
+    access,trap_mem,daddr,dre,dwe,rdata,load_value:L.load_value,wdata:L.wdata,lo,pred_taken_d,target_id,redirect_id,pc_n,pcwhy,flush_if_id,flush_id_ex,imem_rdata,retire,bubble}};
+}
+
+// Small assembler for the example programs (same syntax as tools/rvasm.py for the subset used here).
+const RX=/^x([0-9]|[12][0-9]|3[01])$/;
+function reg(t){ const m=RX.exec(t.trim()); if(!m) throw new Error('bad register '+t); return +m[1]; }
+function assemble(src,base){
+  const lines=src.split('\n'), items=[], labels={}; let pc=base;
+  for(const raw of lines){
+    let [code,cm]=raw.split('#'); code=code.trim(); const line={raw,code:'',cm:(cm||'').trim(),pc:null,label:null};
+    const lm=/^([A-Za-z_]\w*):\s*(.*)$/.exec(code);
+    if(lm){ labels[lm[1]]=pc; line.label=lm[1]; code=lm[2].trim(); }
+    if(code){ line.code=code; line.pc=pc; pc+=4; }
+    if(code||line.label) items.push(line);
+  }
+  const val=t=>{ t=t.trim(); const m=/^([A-Za-z_]\w*)\s*([+-]\s*\d+)?$/.exec(t); if(m&&labels[m[1]]!==undefined) return labels[m[1]]+(m[2]?parseInt(m[2].replace(/\s/g,''),10):0); return parseInt(t); };
+  const R=(f7,f3,rd,a,b)=>u32((f7<<25)|(b<<20)|(a<<15)|(f3<<12)|(rd<<7)|0x33);
+  const I=(op,f3,rd,a,imm)=>u32(((imm&0xfff)<<20)|(a<<15)|(f3<<12)|(rd<<7)|op);
+  const Sx=(f3,a,b,imm)=>u32((((imm>>5)&0x7f)<<25)|(b<<20)|(a<<15)|(f3<<12)|((imm&31)<<7)|0x23);
+  const Bx=(f3,a,b,imm)=>u32((((imm>>12)&1)<<31)|(((imm>>5)&0x3f)<<25)|(b<<20)|(a<<15)|(f3<<12)|(((imm>>1)&0xf)<<8)|(((imm>>11)&1)<<7)|0x63);
+  const Jx=(rd,imm)=>u32((((imm>>20)&1)<<31)|(((imm>>1)&0x3ff)<<21)|(((imm>>11)&1)<<20)|(((imm>>12)&0xff)<<12)|(rd<<7)|0x6f);
+  const memop=t=>{ const m=/^(-?\w+)\((x\d+)\)$/.exec(t.replace(/\s/g,'')); return [parseInt(m[1]),reg(m[2])]; };
+  const RO={add:[0,0],sub:[0x20,0],sll:[0,1],slt:[0,2],sltu:[0,3],xor:[0,4],srl:[0,5],sra:[0x20,5],or:[0,6],and:[0,7]};
+  const IO={addi:0,slti:2,sltiu:3,xori:4,ori:6,andi:7}, SH={slli:[0,1],srli:[0,5],srai:[0x20,5]};
+  const LD={lb:0,lh:1,lw:2,lbu:4,lhu:5}, ST={sb:0,sh:1,sw:2}, BR={beq:0,bne:1,blt:4,bge:5,bltu:6,bgeu:7};
+  const words=[];
+  for(const it of items){ if(!it.code) continue;
+    const sp=it.code.indexOf(' '); const op=(sp<0?it.code:it.code.slice(0,sp)).toLowerCase(); const args=sp<0?[]:it.code.slice(sp+1).split(',').map(s=>s.trim());
+    let wd;
+    if(RO[op]) wd=R(RO[op][0],RO[op][1],reg(args[0]),reg(args[1]),reg(args[2]));
+    else if(IO[op]!==undefined) wd=I(0x13,IO[op],reg(args[0]),reg(args[1]),val(args[2]));
+    else if(SH[op]) wd=I(0x13,SH[op][1],reg(args[0]),reg(args[1]),(SH[op][0]<<5)|(val(args[2])&31));
+    else if(LD[op]!==undefined){ const [o,b]=memop(args[1]); wd=I(0x03,LD[op],reg(args[0]),b,o); }
+    else if(ST[op]!==undefined){ const [o,b]=memop(args[1]); wd=Sx(ST[op],b,reg(args[0]),o); }
+    else if(BR[op]!==undefined) wd=Bx(BR[op],reg(args[0]),reg(args[1]),val(args[2])-it.pc);
+    else if(op==='lui') wd=u32((val(args[1])<<12)|(reg(args[0])<<7)|0x37);
+    else if(op==='auipc') wd=u32((val(args[1])<<12)|(reg(args[0])<<7)|0x17);
+    else if(op==='jal') wd=Jx(reg(args[0]),val(args[1])-it.pc);
+    else if(op==='jalr'){ const [o,b]=memop(args[1]); wd=I(0x67,0,reg(args[0]),b,o); }
+    else if(op==='ecall') wd=0x00000073; else if(op==='ebreak') wd=0x00100073; else if(op==='fence') wd=0x0ff0000f;
+    else if(op==='.word') wd=u32(parseInt(args[0]));
+    else throw new Error('unknown op '+op);
+    it.word=wd; words.push(wd);
+  }
+  return {base,words,items,labels};
+}
+// </SIM> =====================================================================================================
+
+const SCENARIOS=[
+ {id:'fwd',name:'Forwarding chain',desc:'Back-to-back dependent ALU ops. Watch MEM→EX and WB→EX forwarding and the register file’s write-first bypass at distance 3; the store takes its data from the MEM forward.',
+  src:`  lui  x6, 0x2           # x6 = 0x2000, data base
+  addi x1, x0, 5
+  addi x2, x0, 7
+  add  x3, x1, x2        # x2 MEM->EX, x1 WB->EX
+  sub  x4, x3, x1        # x3 MEM->EX, x1 regfile bypass
+  xor  x5, x4, x3        # x4 MEM->EX, x3 WB->EX
+  sw   x5, 0(x6)         # store data x5 MEM->EX
+  ecall                  # halt`},
+ {id:'lu',name:'Load-use stall',desc:'A load followed immediately by a consumer: stall_d holds PC and IF/ID for one cycle and drops a bubble into EX, then WB→EX forwarding supplies the loaded value. Byte loads show lane select and sign/zero extension.',
+  src:`  lui  x10, 0x2          # x10 = 0x2000
+  addi x1, x0, -2        # 0xfffffffe
+  sw   x1, 0(x10)
+  lw   x2, 0(x10)
+  add  x3, x2, x2        # load-use: 1 stall
+  lbu  x4, 1(x10)        # lane 1, zero-extend
+  lb   x5, 1(x10)        # lane 1, sign-extend
+  addi x6, x5, 1         # load-use again
+  ecall`},
+ {id:'loop',name:'Counted loop (try both BP modes)',desc:'A backward bne and a forward jal. BP_MODE=0 resolves both in EX (2 bubbles each when taken). BP_MODE=1 redirects them from ID (1 bubble) and repairs the final fall-through from EX.',
+  src:`  addi x1, x0, 3         # loop counter
+  addi x2, x0, 0         # sum
+loop:
+  add  x2, x2, x1
+  addi x1, x1, -1
+  bne  x1, x0, loop      # backward branch
+  jal  x0, done          # forward jump
+  addi x2, x2, 100       # skipped
+done:
+  ecall`},
+ {id:'call',name:'Call and return (JAL / JALR)',desc:'jal writes the link register and redirects; jalr always resolves in EX because it needs the forwarded rs1, and its target is {alu_y[31:1],0}.',
+  src:`  addi x5, x0, 1
+  jal  x1, func          # x1 = return address
+  addi x5, x5, 10        # runs after return
+  ecall
+func:
+  addi x5, x5, 2
+  jalr x0, 0(x1)         # return`},
+ {id:'misld',name:'Trap: misaligned load',desc:'lw from 0x2002 is caught by rv32i_lsu in MEM. trap_mem suppresses the access, squashes the instruction in EX, flushes IF/ID and ID/EX, and sets the sticky halted flop.',
+  src:`  lui  x10, 0x2
+  addi x10, x10, 2       # x10 = 0x2002
+  addi x1, x0, 1
+  lw   x2, 0(x10)        # misaligned word: trap in MEM
+  addi x3, x0, 3         # squashed
+  addi x4, x0, 4         # squashed`},
+ {id:'ill',name:'Trap: illegal instruction (CSR)',desc:'There are no CSRs, so csrrw decodes as illegal. The decoder clears every side-effect control, trap_e rides ID/EX, and trap_ex fires in EX: younger instructions are squashed and the core halts.',
+  src:`  addi x1, x0, 1
+  addi x2, x0, 2
+  .word 0x00001073       # csrrw x0, ustatus, x0
+  addi x3, x0, 3         # squashed
+  addi x4, x0, 4`},
+ {id:'mistgt',name:'Trap: misaligned branch target',desc:'A taken beq to a target that is not 4-byte aligned. misal_tgt_e suppresses the redirect and raises trap_ex. riscv-formal found this bug before the fix; directed test t08o now covers it.',
+  src:`  addi x1, x0, 1
+  beq  x0, x0, tgt+2     # taken, target not 4-aligned
+  addi x2, x0, 2         # squashed
+tgt:
+  addi x3, x0, 3
+  ecall`},
+];
+
+// ============================================================================================ diagram model
+const NODES={
+ nextpc:{x:30,y:180,w:190,h:80,t:'Next-PC select',s:'always_comb · pc_n',l:['halted › redirect_ex › stall_d','› redirect_id › pc_f+4'],stage:'IF',
+  file:'rtl/rv32i_core.sv:68-74',role:'Picks the address to fetch next cycle by fixed priority.',
+  resp:['halted: hold pc_f (the core has stopped)','redirect_ex: jump to target_ex (taken branch in BP0, misprediction, JALR, JAL in BP0)','stall_d: hold pc_f for the load-use bubble','redirect_id: jump to target_id (BP_MODE=1 only)','otherwise pc_f + 4'],
+  in:['halted','redirect_ex, target_ex','stall_d','redirect_id, target_id','pc_f + 4'],out:['pc_n → PC register'],deps:['Redirect & trap','Hazard unit','Static predictor','Halt state'],
+  code:`if (halted)           pc_n = pc_f;
+else if (redirect_ex) pc_n = target_ex;
+else if (stall_d)     pc_n = pc_f;
+else if (redirect_id) pc_n = target_id;
+else                  pc_n = pc_f + 32'd4;`},
+ pc:{x:30,y:300,w:190,h:60,t:'PC register',s:'pc_f → imem_addr',stage:'IF',file:'rtl/rv32i_core.sv:66,76-79',role:'Holds the fetch address. Resets to RESET_PC (the testbench uses 0x1000).',
+  resp:['Drives imem_addr directly, so fetch is combinational within the cycle','Feeds pc_d in IF/ID and the +4 adder'],in:['pc_n'],out:['imem_addr','pc_f → IF/ID','pc_f → +4'],deps:['Next-PC select'],
+  code:`assign imem_addr = pc_f;
+always_ff @(posedge clk)
+  if (!rst_n) pc_f <= RESET_PC;
+  else        pc_f <= pc_n;`},
+ add4:{x:30,y:400,w:100,h:44,t:'+4',s:'pc_f + 4',stage:'IF',file:'rtl/rv32i_core.sv:73',role:'Sequential next address, the default choice of the next-PC select.',resp:['pc_f + 32\'d4'],in:['pc_f'],out:['pc_f+4 → Next-PC select'],deps:[],code:`else pc_n = pc_f + 32'd4;`},
+ imem:{x:20,y:706,w:220,h:70,t:'Instruction memory',s:'tb_core mem[] · comb read',ext:1,stage:'IF',file:'tb/tb_core.sv:29,51',role:'Outside the core. The testbench’s unified 64 KiB array, read combinationally with no wait states.',
+  resp:['imem_rdata = mem[imem_addr[AW+1:2]]','The same array backs the data port (unified address space, program at 0x1000)'],in:['imem_addr'],out:['imem_rdata → IF/ID'],deps:['PC register'],
+  code:`assign imem_rdata = mem[imem_addr[AW+1:2]];`},
+ dec:{x:290,y:170,w:250,h:110,t:'Decoder',s:'rv32i_decode',l:['opcode · 5 immediate formats','alu_op · a_sel · b_imm · ctrl','is_illegal · is_halt'],stage:'ID',file:'rtl/rv32i_decode.sv',role:'Combinational RV32I decoder and immediate generator. Shared with the single-cycle baseline.',
+  resp:['Builds imm_i / imm_s / imm_b / imm_u / imm_j and picks one per opcode','Sets alu_op (10 ops), a_sel (rs1 / pc / zero), b_imm, reg_write, mem_read, mem_write','Flags is_branch, is_jal, is_jalr and uses_rs1 / uses_rs2 for the hazard unit','is_halt for ECALL (0x00000073) and EBREAK (0x00100073)','is_illegal for anything else: CSR ops, FENCE.I, bad funct3/funct7, unknown opcode; an illegal encoding clears every side-effect control'],
+  in:['instr_d'],out:['rs1, rs2, rd','imm, alu_op, a_sel, b_imm','reg_write, mem_read, mem_write, funct3','is_branch, is_jal, is_jalr, uses_rs1/2','is_halt, is_illegal'],deps:['IF/ID register'],
+  code:`// An illegal encoding has no architectural effect.
+if (is_illegal) begin
+  reg_write = 1'b0; mem_read = 1'b0; mem_write = 1'b0;
+  is_branch = 1'b0; is_jal = 1'b0; is_jalr = 1'b0;
+  uses_rs1  = 1'b0; uses_rs2  = 1'b0;
+end`},
+ rf:{x:290,y:310,w:250,h:120,t:'Register file',s:'rv32i_regfile · 31 × 32',l:['2 read / 1 write · x0 reads 0','write-first bypass','not reset (programs init)'],stage:'ID',file:'rtl/rv32i_regfile.sv',role:'Two combinational read ports and one write port driven from WB.',
+  resp:['x0 is hardwired to zero; writes to x0 are dropped','A read of the register being written this cycle returns the new value, which closes the distance-3 RAW without a forwarding path','Registers are not reset (a reset would add a mux per flop)'],
+  in:['ra1 = rs1_d, ra2 = rs2_d','we = rw_w, wa = rd_w, wd = wb_data_w'],out:['rs1_data_d, rs2_data_d → ID/EX'],deps:['Decoder','Write-back'],
+  code:`if (ra1 == 5'd0)                    rd1 = 32'b0;
+else if (BYPASS && we && wa == ra1) rd1 = wd;
+else                                rd1 = regs[ra1];`},
+ haz:{x:290,y:460,w:250,h:90,t:'Hazard unit',s:'rv32i_hazard',l:['load-use stall_d','forward selects (EX rule + ID precompute)'],stage:'ID',file:'rtl/rv32i_hazard.sv',role:'Detects load-use and produces the forwarding selects.',
+  resp:['stall_d when the instruction in ID reads a register the load in EX is about to produce','fwd_a / fwd_b in EX: youngest producer wins, MEM before WB','fwd_a_d / fwd_b_d: the same rule evaluated one stage early and registered (FWD_PRECOMP=1), taking the compares off the EX critical path','A load in MEM is never forwarded from; the stall guarantees no consumer is in EX at that moment'],
+  in:['valid_d, rs1_d, rs2_d, uses_rs1_d, uses_rs2_d','rd_e, mem_read_e, reg_write_e','rd_m, rw_m, rd_w, rw_w'],out:['stall_d','fwd_a, fwd_b (EX form)','fwd_a_d, fwd_b_d → ID/EX'],deps:['Decoder','ID/EX, EX/MEM, MEM/WB registers'],
+  code:`stall_d = valid_d && mem_read_e && rd_e != 5'd0 &&
+  ((uses_rs1_d && rs1_d == rd_e) ||
+   (uses_rs2_d && rs2_d == rd_e));`},
+ pred:{x:290,y:580,w:250,h:70,t:'Static predictor',s:'BP_MODE=1 only',l:['JAL + backward branch → redirect_id'],stage:'ID',file:'rtl/rv32i_core.sv:126-131',role:'Backward-taken / forward-not-taken prediction made in ID. Tied off when BP_MODE=0.',
+  resp:['pred_taken_d = is_branch_d && imm_d[31] (backward)','target_id = pc_d + imm_d','redirect_id for JAL or a predicted-taken branch, unless stalled, overridden by EX, trapping, halted, or the target is misaligned (left to the EX trap)','Costs 1 bubble instead of 2 when right; EX repairs it when wrong'],
+  in:['pc_d','is_jal_d, is_branch_d, imm_d','stall_d, redirect_ex, trap_ex, trap_mem, halted'],out:['redirect_id, target_id → Next-PC','pred_taken_d → ID/EX'],deps:['Decoder','Redirect & trap'],
+  code:`assign pred_taken_d = (BP_MODE == 1) && is_branch_d && imm_d[31];
+assign target_id    = pc_d + imm_d;
+assign redirect_id  = (BP_MODE == 1) && valid_d && !stall_d && !redirect_ex
+   && !trap_ex && !trap_mem && !halted && (is_jal_d || pred_taken_d)
+   && (target_id[1:0] == 2'b00);`},
+ redir:{x:620,y:165,w:290,h:85,t:'Redirect & trap',s:'EX · mispredict_e · trap_ex',l:['redirect_ex: mispredict · JALR · JAL (BP0)','trap_ex → flush_if_id, flush_id_ex'],stage:'EX',file:'rtl/rv32i_core.sv:238-247',role:'Resolves control flow in EX and raises EX traps.',
+  resp:['mispredict_e: BP0 = any taken branch; BP1 = br_taken_e ≠ pred_taken_e','redirect_ex for a misprediction, every JALR, and JAL when BP_MODE=0; suppressed if the target is misaligned','target_ex: JALR target, pc_e+4 for a predicted-taken branch that falls through, else pc_e+imm_e','trap_ex = valid_e && (trap_e || misal_tgt_e)','Drives flush_if_id and flush_id_ex (2 bubbles), and halted'],
+  in:['is_branch_e, is_jal_e, is_jalr_e, pred_taken_e, trap_e','br_taken_e, target_add_e, jalr_target_e, misal_tgt_e'],out:['redirect_ex, target_ex','flush_if_id, flush_id_ex','trap_ex → Halt state'],deps:['Targets','Branch comparator','ID/EX register'],
+  code:`redirect_ex = valid_e && !misal_tgt_e &&
+  (mispredict_e || is_jalr_e || (BP_MODE == 0 && is_jal_e));
+if (is_jalr_e)                        target_ex = jalr_target_e;
+else if (BP_MODE == 1 && !br_taken_e) target_ex = pc4_e;
+else                                  target_ex = target_add_e;
+assign trap_ex = valid_e && (trap_e || misal_tgt_e);`},
+ fwd:{x:620,y:300,w:120,h:120,t:'Forward mux',s:'fwd_a · fwd_b',l:['MEM › WB › ID/EX'],stage:'EX',file:'rtl/rv32i_core.sv:190-213',role:'Selects each EX operand from the youngest older producer.',
+  resp:['FWD_MEM: alu_result_m (the instruction one ahead)','FWD_WB: wb_data_w (two ahead)','FWD_NONE: the value read in ID','With FWD_PRECOMP=1 the select comes from a flop (fwd_a_r), with 0 from the EX compare; both verified'],
+  in:['rs1_data_e, rs2_data_e','alu_result_m','wb_data_w','fwd_a, fwd_b'],out:['rs1_fwd_e, rs2_fwd_e'],deps:['Hazard unit','EX/MEM','MEM/WB'],
+  code:`case (fwd_a)
+  \`FWD_MEM: rs1_fwd_e = alu_result_m;
+  \`FWD_WB:  rs1_fwd_e = wb_data_w;
+  default:  rs1_fwd_e = rs1_data_e;
+endcase`},
+ opsel:{x:760,y:300,w:150,h:60,t:'Operand select',s:'a_sel · b_imm',stage:'EX',file:'rtl/rv32i_core.sv:209-213',role:'Chooses the ALU inputs.',
+  resp:['A: rs1_fwd_e, pc_e (AUIPC) or zero (LUI)','B: imm_e when b_imm, else rs2_fwd_e'],in:['rs1_fwd_e, rs2_fwd_e','pc_e, imm_e','a_sel_e, b_imm_e'],out:['alu_a_e, alu_b_e'],deps:['Forward mux'],
+  code:`case (a_sel_e)
+  \`A_PC:   alu_a_e = pc_e;
+  \`A_ZERO: alu_a_e = 32'b0;
+  default: alu_a_e = rs1_fwd_e;
+endcase
+alu_b_e = b_imm_e ? imm_e : rs2_fwd_e;`},
+ alu:{x:760,y:380,w:150,h:70,t:'ALU',s:'rv32i_alu · 10 ops',l:['result_e = jump ? pc+4 : y'],stage:'EX',file:'rtl/rv32i_alu.sv',role:'Purely combinational 32-bit integer ALU.',
+  resp:['ADD SUB SLL SLT SLTU XOR SRL SRA OR AND','Shift amount is b[4:0]','Also computes load/store addresses and the JALR target','result_e substitutes pc_e+4 for JAL/JALR (the link value)'],in:['alu_a_e, alu_b_e, alu_op_e'],out:['alu_y_e → result_e → EX/MEM','alu_y_e → JALR target'],deps:['Operand select'],
+  code:`\`ALU_SRA: y = $unsigned($signed(a) >>> shamt);
+...
+assign result_e = (is_jal_e | is_jalr_e) ? pc4_e : alu_y_e;`},
+ bru:{x:620,y:462,w:140,h:60,t:'Branch compare',s:'rv32i_branch',stage:'EX',file:'rtl/rv32i_branch.sv',role:'Evaluates the branch condition on the forwarded operands.',
+  resp:['BEQ BNE BLT BGE BLTU BGEU by funct3','br_taken_e = is_branch_e & cmp'],in:['rs1_fwd_e, rs2_fwd_e, funct3_e'],out:['br_taken_e'],deps:['Forward mux'],
+  code:`3'b100: taken = lt;     // BLT
+3'b101: taken = ~lt;    // BGE
+3'b110: taken = ltu;    // BLTU`},
+ tgt:{x:780,y:472,w:130,h:68,t:'Targets',s:'pc+imm · JALR',l:['misal_tgt_e'],stage:'EX',file:'rtl/rv32i_core.sv:226-236',role:'Branch and jump targets, and the misaligned-target trap condition.',
+  resp:['target_add_e = pc_e + imm_e, pc4_e = pc_e + 4','jalr_target_e = {alu_y_e[31:1], 1\'b0}','misal_tgt_e: taken branch/JAL with target[1:0] ≠ 0, or JALR with bit 1 set; no C extension, so this traps (found by riscv-formal)'],
+  in:['pc_e, imm_e','alu_y_e','br_taken_e, is_jal_e, is_jalr_e'],out:['target_add_e, jalr_target_e, pc4_e','misal_tgt_e'],deps:['ALU','Branch compare'],
+  code:`assign misal_tgt_e = valid_e && (((is_jal_e | br_taken_e)
+   && (target_add_e[1:0] != 2'b00))
+   || (is_jalr_e && jalr_target_e[1]));`},
+ memtrap:{x:990,y:170,w:210,h:80,t:'Access control',s:'trap_mem · dmem_re / dmem_we',l:['misaligned → suppress + trap'],stage:'MEM',file:'rtl/rv32i_core.sv:280-288',role:'Gates the data-memory port and raises the MEM trap.',
+  resp:['mem_access_m = valid_m && (mem_read_m || mem_write_m)','trap_mem = mem_access_m && misaligned_m','dmem_re / dmem_we only for a valid, aligned access','dmem_addr is word-aligned: {alu_result_m[31:2], 2\'b00}'],
+  in:['valid_m, mem_read_m, mem_write_m','misaligned_m, wstrb_m'],out:['dmem_re, dmem_we[3:0], dmem_addr','trap_mem → EX/MEM, flushes, Halt state'],deps:['Load/store unit','EX/MEM register'],
+  code:`assign mem_access_m = valid_m && (mem_read_m || mem_write_m);
+assign trap_mem     = mem_access_m && misaligned_m;
+assign dmem_re = valid_m && mem_read_m && !misaligned_m;
+assign dmem_we = (valid_m && mem_write_m && !misaligned_m) ? wstrb_m : 4'b0000;`},
+ lsu:{x:990,y:300,w:210,h:120,t:'Load/store unit',s:'rv32i_lsu',l:['byte strobes · lane replication','load lane select · sign/zero extend','misaligned detect'],stage:'MEM',file:'rtl/rv32i_lsu.sv',role:'Combinational alignment logic, shared with the single-cycle core.',
+  resp:['Store: wstrb = 0001<<lo (byte), 0011<<{lo[1],0} (half), 1111 (word); data replicated into every lane','Load: shift the word right by 8×addr_lo, then sign- or zero-extend per funct3','misaligned: halfword at an odd address, word at a non-multiple of 4'],
+  in:['funct3_m, alu_result_m[1:0]','store_data_m','dmem_rdata'],out:['wstrb_m, wdata_m','load_value_m','misaligned_m'],deps:['EX/MEM register','Data memory'],
+  code:`assign shifted = load_word >> {addr_lo, 3'b000};
+3'b000: load_value = {{24{shifted[7]}}, shifted[7:0]};  // LB
+3'b100: load_value = {24'b0, shifted[7:0]};             // LBU`},
+ dmem:{x:980,y:706,w:230,h:70,t:'Data memory',s:'tb_core mem[] · strobed write',ext:1,stage:'MEM',file:'tb/tb_core.sv:52-60',role:'Outside the core. Same array as instruction memory.',
+  resp:['Combinational read; returns 0xDEADBEEF when dmem_re is low (poison)','Byte-strobed write on the rising edge, ignored during reset'],in:['dmem_addr, dmem_re, dmem_we, dmem_wdata'],out:['dmem_rdata'],deps:['Access control','Load/store unit'],
+  code:`assign dmem_rdata = dmem_re ? mem[dmem_addr[AW+1:2]] : 32'hDEAD_BEEF;
+if (rst_n && dmem_we[0]) mem[...][7:0] <= dmem_wdata[7:0];`},
+ halt:{x:1260,y:170,w:210,h:70,t:'Halt state',s:'halted (sticky flop)',l:['holds PC · flushes forever'],stage:'WB',file:'rtl/rv32i_core.sv:298-302',role:'Records that the core has stopped. There is no trap vector.',
+  resp:['Set by trap_ex or trap_mem, never cleared except by reset','While high: pc_n = pc_f, IF/ID and ID/EX flush every cycle','Exported as the halted output port'],in:['trap_ex','trap_mem'],out:['halted → Next-PC, flushes, port'],deps:['Redirect & trap','Access control'],
+  code:`always_ff @(posedge clk)
+  if (!rst_n)                   halted <= 1'b0;
+  else if (trap_ex || trap_mem) halted <= 1'b1;`},
+ wbmux:{x:1260,y:300,w:210,h:70,t:'Write-back',s:'load_value | alu_result',stage:'WB',file:'rtl/rv32i_core.sv:290-296',role:'The register write port and the source of the WB→EX forward.',
+  resp:['wb_data_w = mem_read_m ? load_value_m : alu_result_m (selected before MEM/WB)','rw_w = rw_m && !trap_mem','Drives the regfile write port and its write-first bypass'],in:['wb_data_w, rd_w, rw_w (MEM/WB)'],out:['Register file write','wb_data_w → Forward mux','RVFI record'],deps:['MEM/WB register'],
+  code:`rw_w      <= rw_m && !trap_mem;
+wb_data_w <= mem_read_m ? load_value_m : alu_result_m;
+rd_w      <= rd_m;`},
+ rvfi:{x:1260,y:420,w:210,h:80,t:'RVFI trace port',s:'RVFI_EN=1 only',l:['retire record + rvfi_order','removed for synthesis'],ver:1,stage:'WB',file:'rtl/rv32i_core.sv:304-389',role:'A subset of the RISC-V Formal Interface carried down the pipeline with each instruction.',
+  resp:['instr, pc, next pc, rs1/rs2 addresses and values, rd and value, memory address, byte masks, load/store data','rvfi_halt for ECALL/EBREAK/illegal/misaligned; rvfi_trap unless ECALL/EBREAK','rvfi_order counts retirements'],in:['valid_w and the per-stage copies of instruction facts'],out:['rvfi_* → testbench trace'],deps:['Write-back'],
+  code:`assign rvfi_halt = valid_w && (halt_w || ill_w || misal_w);
+assign rvfi_trap = valid_w && (ill_w || misal_w);`},
+ chk:{x:290,y:706,w:640,h:70,t:'rv32i_checker (bind)',s:'verif/rv32i_checker.sv · 48 assertions · 143 cover bins',l:['observes forwarding selects, stall, redirects, traps, halted, dmem strobes and RVFI; every assertion is written in both directions'],ver:1,ext:1,stage:'',file:'verif/rv32i_checker.sv, verif/checker_binds.sv',role:'Assertions bound onto the core by name; not part of the synthesised design.',
+  resp:['Forwarding selects equal the rule, “whenever” and “only when”','Load-use stall exact; a consumer never sits in EX behind its load','Flush and redirect behaviour for both BP modes; trap squashing; sticky halt','Store strobes match the address lane; RVFI is self-consistent','Mutation run: 73 deliberate bugs, 73 caught, every assertion fired at least once'],
+  in:['Internal signals by name (.*)'],out:['Assertion failures, cover hits'],deps:['All pipeline control'],
+  code:`bind rv32i_core rv32i_checker #(.BP_MODE(BP_MODE)) u_chk (.*, ...);
+a_stall_always: assert property (... lu_hazard |-> stall_d);
+a_stall_only:   assert property (... stall_d |-> lu_hazard);`},
+ iss:{x:1260,y:706,w:210,h:70,t:'Lock-step vs ISS',s:'rviss.py · compare_trace.py',ver:1,ext:1,stage:'',file:'tools/rviss.py, tools/compare_trace.py, tb/tb_core.sv',role:'Every retired instruction is compared against an independent instruction-set simulator.',
+  resp:['tb_core writes one trace line per rvfi_valid','rviss.py is written from the spec tables and shares no code with the RTL decoder','compare_trace.py checks all 17 fields per line, then the final memory images','The run ends on the halting retirement'],in:['RVFI trace'],out:['pass / first mismatch'],deps:['RVFI trace port'],
+  code:`FIELDS = ("order pc insn next_pc rs1_addr rs1_rdata rs2_addr rs2_rdata "
+          "rd_addr rd_wdata mem_addr mem_rmask mem_wmask mem_rdata "
+          "mem_wdata halt trap").split()`},
+};
+const BARS={
+ ifid:{x:250,t:'IF/ID',file:'rtl/rv32i_core.sv:81-97',role:'valid_d, pc_d, instr_d.',resp:['Cleared by flush_if_id = redirect_ex | redirect_id | trap_ex | trap_mem | halted','Held (not loaded) while stall_d'],
+  code:`assign flush_if_id = redirect_ex | redirect_id | trap_ex | trap_mem | halted;
+if (!rst_n || flush_if_id) valid_d <= 1'b0;
+else if (!stall_d)         valid_d <= 1'b1;`},
+ idex:{x:580,t:'ID/EX',file:'rtl/rv32i_core.sv:133-177',role:'Control and operands for EX; plus fwd_a_r / fwd_b_r when FWD_PRECOMP=1.',resp:['Control fields cleared (a bubble) on flush_id_ex, stall_d, or an invalid ID slot','Datapath fields always load','trap_e = is_halt_d | is_illegal_d'],
+  code:`if (!rst_n || flush_id_ex || stall_d || !valid_d) begin
+  valid_e <= 1'b0; reg_write_e <= 1'b0; ...
+end else begin
+  valid_e <= 1'b1; trap_e <= is_halt_d | is_illegal_d; ...`},
+ exmem:{x:950,t:'EX/MEM',file:'rtl/rv32i_core.sv:249-270',role:'alu_result_m, store_data_m, rd_m, funct3_m and qualifiers.',resp:['Cleared by trap_mem (squashes the instruction in EX)','rw_m = reg_write_e && !misal_tgt_e (a trapping jump never links)'],
+  code:`if (!rst_n || trap_mem) begin valid_m <= 0; rw_m <= 0; ... end
+else begin
+  valid_m <= valid_e;
+  rw_m    <= reg_write_e && !misal_tgt_e; ...`},
+ memwb:{x:1220,t:'MEM/WB',file:'rtl/rv32i_core.sv:290-296',role:'rw_w, rd_w, wb_data_w.',resp:['rw_w = rw_m && !trap_mem','wb_data_w already holds the load value or the ALU result'],
+  code:`rw_w      <= rw_m && !trap_mem;
+wb_data_w <= mem_read_m ? load_value_m : alu_result_m;`},
+};
+const TYPES={data:'Combinational datapath',mem:'Memory port (outside the core)',fwd:'Forwarding / bypass',ctl:'Control & hazard signal',trap:'Trap / halt',ver:'Verification only (not synthesised)'};
+const E=(id,from,to,type,label,pts,desc)=>({id,from,to,type,label,pts,desc});
+const EDGES=[
+ E('E01','pc','imem','mem','imem_addr = pc_f',[[175,360],[175,706]],'The fetch address leaves the core on the instruction port.'),
+ E('E02','imem','ifid','mem','imem_rdata',[[240,742],[259,742],[259,660]],'The fetched word returns in the same cycle and is latched into IF/ID as instr_d.'),
+ E('E03','pc','ifid','data','pc_f → pc_d',[[220,330],[250,330]],'The fetch PC travels with the instruction.'),
+ E('E04','pc','add4','data','pc_f',[[80,360],[80,400]]),
+ E('E05','add4','nextpc','data','pc_f + 4',[[30,422],[16,422],[16,220],[30,220]],'Default next address.'),
+ E('E06','nextpc','pc','data','pc_n',[[125,260],[125,300]],'Loaded into pc_f at the clock edge.'),
+ E('E07','ifid','dec','data','instr_d',[[268,215],[290,215]]),
+ E('E08','dec','rf','data','rs1_d, rs2_d',[[415,280],[415,310]],'Register addresses straight from instr_d[19:15] and [24:20].'),
+ E('E09','dec','haz','ctl','rs1_d, rs2_d, uses_rs1_d, uses_rs2_d',[[290,262],[279,262],[279,500],[290,500]],'The ID instruction’s source registers, for the load-use check and the precomputed forward selects.'),
+ E('E10','dec','idex','data','imm, alu_op, a_sel, b_imm, ctrl, trap_e',[[540,215],[580,215]]),
+ E('E11','rf','idex','data','rs1_data_d, rs2_data_d',[[540,360],[580,360]]),
+ E('E12','ifid','pred','data','pc_d',[[268,615],[290,615]]),
+ E('E13','dec','pred','ctl','is_jal_d, is_branch_d, imm_d',[[540,262],[552,262],[552,600],[540,600]]),
+ E('E14','haz','idex','fwd','fwd_a_d, fwd_b_d (FWD_PRECOMP=1)',[[540,492],[580,492]],'The forward select for the next cycle, computed in ID and registered.'),
+ E('E15','haz','idex','ctl','stall_d → bubble',[[540,528],[580,528]],'A stall clears ID/EX control: a bubble enters EX.'),
+ E('E16','idex','haz','ctl','rd_e, mem_read_e, reg_write_e',[[580,472],[540,472]],'The instruction in EX, for load-use detection.'),
+ E('E17','haz','nextpc','ctl','stall_d: hold PC and IF/ID',[[350,550],[350,566],[244,566],[244,245],[220,245]]),
+ E('E18','pred','nextpc','ctl','redirect_id, target_id',[[290,640],[236,640],[236,232],[220,232]],'BP_MODE=1 early redirect; also flushes the one instruction fetched behind it.'),
+ E('E19','idex','fwd','data','rs1_data_e, rs2_data_e',[[598,345],[620,345]]),
+ E('E20','fwd','opsel','data','rs1_fwd_e, rs2_fwd_e',[[740,330],[760,330]]),
+ E('E21','idex','opsel','data','pc_e, imm_e',[[598,290],[835,290],[835,300]]),
+ E('E22','opsel','alu','data','alu_a_e, alu_b_e',[[835,360],[835,380]]),
+ E('E23','fwd','bru','data','rs1_fwd_e, rs2_fwd_e',[[680,420],[680,462]]),
+ E('E24','bru','tgt','ctl','br_taken_e',[[760,500],[780,500]]),
+ E('E25','idex','tgt','data','pc_e, imm_e',[[598,560],[845,560],[845,540]]),
+ E('E26','alu','tgt','data','alu_y_e (JALR target)',[[880,450],[880,472]]),
+ E('E27','tgt','redir','ctl','target_add_e, jalr_target_e, misal_tgt_e',[[910,506],[928,506],[928,207],[910,207]]),
+ E('E28','idex','redir','ctl','is_branch/jal/jalr_e, pred_taken_e, trap_e',[[598,200],[620,200]]),
+ E('E29','alu','exmem','data','result_e',[[910,415],[950,415]],'ALU result, or pc+4 for JAL/JALR.'),
+ E('E30','fwd','exmem','data','rs2_fwd_e → store_data_m',[[725,420],[725,455],[940,455],[940,440],[950,440]],'Store data is the forwarded rs2.'),
+ E('E31','redir','nextpc','ctl','redirect_ex, target_ex',[[765,165],[765,122],[125,122],[125,180]]),
+ E('E32','redir','ifid','ctl','flush_if_id',[[690,165],[690,138],[259,138],[259,150]],'redirect_ex | redirect_id | trap_ex | trap_mem | halted'),
+ E('E33','redir','idex','ctl','flush_id_ex',[[640,165],[640,146],[589,146],[589,150]],'redirect_ex | trap_ex | trap_mem | halted'),
+ E('E34','redir','halt','trap','trap_ex',[[880,165],[880,106],[1365,106],[1365,170]]),
+ E('E35','memtrap','halt','trap','trap_mem',[[1150,170],[1150,130],[1320,130],[1320,170]]),
+ E('E36','memtrap','exmem','trap','trap_mem: squash EX',[[1030,170],[1030,146],[959,146],[959,150]]),
+ E('E37','halt','nextpc','trap','halted: hold PC, flush',[[1440,170],[1440,90],[60,90],[60,180]]),
+ E('E38','exmem','lsu','data','alu_result_m[1:0], store_data_m, funct3_m',[[968,350],[990,350]]),
+ E('E39','exmem','memtrap','ctl','valid_m, mem_read_m, mem_write_m',[[968,210],[990,210]]),
+ E('E40','lsu','memtrap','trap','misaligned_m, wstrb_m',[[1095,300],[1095,250]]),
+ E('E41','lsu','dmem','mem','dmem_addr, dmem_re, dmem_we[3:0], dmem_wdata',[[1060,420],[1060,706]]),
+ E('E42','dmem','lsu','mem','dmem_rdata',[[1140,706],[1140,420]]),
+ E('E43','lsu','memwb','data','load_value_m',[[1200,360],[1220,360]]),
+ E('E44','exmem','memwb','data','alu_result_m, rd_m, rw_m',[[968,470],[1220,470]]),
+ E('E45','memwb','wbmux','data','wb_data_w, rd_w, rw_w',[[1238,335],[1260,335]]),
+ E('E46','wbmux','rf','data','write port: rw_w, rd_w, wb_data_w',[[1470,335],[1488,335],[1488,680],[568,680],[568,410],[540,410]],'Writes at the next edge; the same values feed the write-first bypass.'),
+ E('E47','wbmux','fwd','fwd','wb_data_w (FWD_WB)',[[1300,300],[1300,276],[705,276],[705,300]],'Distance-2 producer.'),
+ E('E48','exmem','fwd','fwd','alu_result_m (FWD_MEM)',[[950,262],[660,262],[660,300]],'Distance-1 producer. Never a load: the stall prevents that case.'),
+ E('E49','exmem','haz','ctl','rd_m, rw_m, rd_w, rw_w',[[959,660],[959,668],[470,668],[470,550]]),
+ E('E50','wbmux','rvfi','ver','retire record',[[1365,370],[1365,420]]),
+ E('E51','rvfi','iss','ver','rvfi_* trace line',[[1365,500],[1365,706]]),
+ E('E52','chk','haz','ver','observes fwd_a/b, stall_d',[[430,706],[430,550]]),
+ E('E53','chk','bru','ver','observes redirects, traps, dmem, RVFI',[[690,706],[690,522]]),
+];
+const EMAP=Object.fromEntries(EDGES.map(e=>[e.id,e]));
+
+const PATHS=[
+ {g:'Instruction flows',id:'alu',name:'R-type ALU (add x3, x1, x2)',desc:'The common case: no hazard, no memory access.',steps:[
+  ['n:pc','pc_f holds this cycle’s fetch address and drives imem_addr directly.'],
+  ['E01','imem_addr leaves the core. The instruction memory is in the testbench and reads combinationally.'],
+  ['E02','imem_rdata returns in the same cycle and is latched into IF/ID at the clock edge.'],
+  ['E03','pc_f is latched alongside it as pc_d.'],
+  ['E04','In parallel, pc_f feeds the +4 adder…'],
+  ['E05','…and pc_f+4 becomes the default choice of the next-PC select.'],
+  ['E07','ID: rv32i_decode sees opcode 0110011. funct3/funct7 select ALU_ADD; uses_rs1 = uses_rs2 = 1, reg_write = 1, b_imm = 0.'],
+  ['E08','rs1 and rs2 index the register file; both reads are combinational.'],
+  ['E11','rs1_data_d and rs2_data_d are captured in ID/EX.'],
+  ['E10','The control fields go into ID/EX with them.'],
+  ['E19','EX: the operands enter the forwarding muxes. No producer is in flight, so fwd_a = fwd_b = FWD_NONE.'],
+  ['E20','Operand select: A = rs1_fwd_e (a_sel = A_RS1), B = rs2_fwd_e (b_imm = 0).'],
+  ['E22','rv32i_alu computes a + b.'],
+  ['E29','result_e is latched into EX/MEM as alu_result_m, together with rd_m and rw_m.'],
+  ['E44','MEM: no access, so alu_result_m passes straight to MEM/WB.'],
+  ['E45','wb_data_w = alu_result_m because mem_read_m = 0.'],
+  ['E46','WB drives the register-file write port; x3 is written at the next edge.'],
+  ['E50','With RVFI_EN=1 the retirement record is formed: pc, insn, rs values, rd and its value.'],
+  ['E51','The testbench writes the trace line; compare_trace.py checks it field by field against rviss.py.']]},
+ {g:'Instruction flows',id:'load',name:'Load (lw x2, 0(x10))',desc:'Address computed in EX, memory read and lane extraction in MEM.',steps:[
+  ['E01','Fetch as usual.'],['E02','The load word is latched into IF/ID.'],
+  ['E07','Decode: OP_LOAD → imm_i, mem_read = 1, reg_write = 1, uses_rs1 = 1. funct3 010 = word.'],
+  ['E08','rs1 (x10) indexes the register file.'],['E11','Base address value into ID/EX.'],['E10','Control and the immediate into ID/EX.'],
+  ['E19','EX: rs1 through the forward mux.'],['E21','b_imm = 1, so operand B is imm_e.'],['E20','Operand A is rs1_fwd_e.'],
+  ['E22','The ALU adds base + offset: the effective address.'],
+  ['E29','The address is latched as alu_result_m.'],
+  ['E38','MEM: rv32i_lsu gets addr[1:0] and funct3.'],
+  ['E39','Access control sees valid_m and mem_read_m.'],
+  ['E40','misaligned_m = 0 for an aligned word, so no trap.'],
+  ['E41','dmem_re = 1 with the word-aligned dmem_addr.'],
+  ['E42','dmem_rdata returns combinationally.'],
+  ['E43','The LSU shifts the addressed lane down and sign- or zero-extends it: load_value_m.'],
+  ['E45','wb_data_w = load_value_m (selected because mem_read_m = 1).'],
+  ['E46','x2 is written.'],['E50','RVFI records mem_addr, mem_rmask and mem_rdata.'],['E51','Compared with the ISS.']]},
+ {g:'Instruction flows',id:'store',name:'Store (sw x5, 0(x6))',desc:'Store data is the forwarded rs2; the LSU positions it and generates byte strobes.',steps:[
+  ['E07','Decode: OP_STORE → imm_s, mem_write = 1, uses_rs1 = uses_rs2 = 1, reg_write = 0.'],
+  ['E08','Both source registers are read.'],['E11','Base and data into ID/EX.'],['E10','Control into ID/EX.'],
+  ['E19','EX: both operands pass the forward muxes (store data is often forwarded).'],['E21','Operand B = imm_e.'],['E22','The ALU computes the address.'],
+  ['E30','rs2_fwd_e is latched as store_data_m.'],['E29','The address is latched as alu_result_m.'],
+  ['E38','MEM: the LSU replicates the data into its lanes and computes wstrb from funct3 and addr[1:0].'],
+  ['E39','Access control sees mem_write_m.'],['E40','Aligned, so no trap.'],
+  ['E41','dmem_we = wstrb (1111 for sw) with dmem_wdata; the memory writes at the clock edge.'],
+  ['E44','No register write: rw_m = 0.'],['E50','RVFI records mem_wmask and mem_wdata.'],['E51','Compared with the ISS, and the final memory image is compared too.']]},
+ {g:'Control flow',id:'br0',name:'Taken branch, BP_MODE = 0',desc:'Every control transfer resolves in EX. A taken branch costs 2 bubbles.',steps:[
+  ['E07','Decode: OP_BRANCH → imm_b, is_branch = 1, uses_rs1 = uses_rs2 = 1.'],['E11','Operands into ID/EX.'],['E10','imm and funct3 into ID/EX.'],
+  ['E28','is_branch_e reaches the redirect logic.'],
+  ['E19','EX: operands pass the forward muxes.'],
+  ['E23','rv32i_branch compares rs1_fwd_e and rs2_fwd_e according to funct3.'],
+  ['E24','br_taken_e = 1.'],
+  ['E25','target_add_e = pc_e + imm_e.'],
+  ['E27','Target and misal_tgt_e = 0 reach the redirect logic. In BP_MODE 0, mispredict_e = br_taken_e.'],
+  ['E31','redirect_ex: pc_n = target_ex. Only halted has higher priority.'],
+  ['E32','flush_if_id squashes the instruction fetched behind the branch…'],
+  ['E33','…and flush_id_ex squashes the one in ID. That is the 2-bubble penalty.'],
+  ['E44','The branch itself continues to WB with rw_m = 0.'],['E50','It retires with next pc = target.']]},
+ {g:'Control flow',id:'bp1',name:'Backward branch predicted in ID, BP_MODE = 1',desc:'Static backward-taken prediction saves one bubble on loops; EX repairs a wrong guess.',steps:[
+  ['E07','Decode: is_branch_d = 1 and imm_d[31] = 1 (a backward offset).'],
+  ['E12','pc_d goes to the predictor.'],
+  ['E13','is_branch_d && imm_d[31] → pred_taken_d = 1.'],
+  ['E18','redirect_id: pc_n = target_id = pc_d + imm_d. flush_if_id drops only the fetch behind it: 1 bubble.'],
+  ['E10','pred_taken_e rides along in ID/EX.'],
+  ['E19','EX: the real comparison still happens.'],['E23','rv32i_branch evaluates the condition.'],['E24','br_taken_e.'],
+  ['E27','If br_taken_e == pred_taken_e there is no redirect. On the loop’s last iteration they differ…'],
+  ['E31','…so redirect_ex repairs the PC to pc_e + 4 (target_ex for a predicted-taken branch that falls through), with 2 bubbles.']]},
+ {g:'Control flow',id:'jalr',name:'JALR (return)',desc:'JALR always resolves in EX because its target needs the forwarded rs1.',steps:[
+  ['E07','Decode: OP_JALR → imm_i, is_jalr = 1, uses_rs1 = 1, reg_write = 1; funct3 must be 000.'],
+  ['E11','rs1 into ID/EX.'],['E10','Control into ID/EX.'],
+  ['E19','EX: rs1 is forwarded if its producer is still in flight.'],['E20','Operand A = rs1_fwd_e, B = imm_e.'],
+  ['E22','The ALU computes rs1 + imm.'],
+  ['E26','jalr_target_e = {alu_y_e[31:1], 1\'b0}.'],
+  ['E27','misal_tgt_e if bit 1 is set; otherwise the target goes to the redirect logic.'],
+  ['E31','redirect_ex is raised for every JALR.'],['E32','flush_if_id.'],['E33','flush_id_ex: 2 bubbles.'],
+  ['E29','result_e = pc_e + 4, the link value.'],['E44','Carried to WB.'],['E46','rd ← pc + 4 (no write when rd = x0).']]},
+ {g:'Hazards',id:'fwdmem',name:'Forward MEM → EX (distance 1)',desc:'The producer is one instruction ahead.',steps:[
+  ['n:exmem','The producer sits in EX/MEM with rw_m = 1 and rd_m = the consumer’s source register.'],
+  ['E16','A cycle earlier, with FWD_PRECOMP = 1, the hazard unit saw that producer in EX (rd_e, reg_write_e)…'],
+  ['E14','…and registered fwd_a_d = FWD_MEM into ID/EX with the consumer.'],
+  ['E49','With FWD_PRECOMP = 0 the same compare uses rd_m / rw_m in EX instead.'],
+  ['E48','alu_result_m is steered back into the forward mux: FWD_MEM.'],
+  ['E20','The ALU sees the fresh value with no stall.'],['E22','Execute.']]},
+ {g:'Hazards',id:'fwdwb',name:'Forward WB → EX (distance 2)',desc:'The producer is two instructions ahead; MEM still wins if both match.',steps:[
+  ['E49','rd_w / rw_w reach the hazard logic.'],
+  ['E47','wb_data_w → forward mux: FWD_WB, chosen only if MEM does not also match (youngest producer wins).'],
+  ['E20','Operand select gets the forwarded value.'],['E22','Execute.']]},
+ {g:'Hazards',id:'bypass',name:'Register-file bypass (distance 3)',desc:'Closed inside rv32i_regfile, not by the forwarding muxes.',steps:[
+  ['E46','WB writes rd this cycle.'],
+  ['n:rf','The instruction in ID reads the same register: rd1 = wd because we && wa == ra1 (write-first bypass).'],
+  ['E11','The fresh value is latched into ID/EX, so no forwarding is needed in EX.']]},
+ {g:'Hazards',id:'lu',name:'Load-use stall (1 bubble)',desc:'A load’s data is not ready until the end of MEM, so the consumer waits one cycle.',steps:[
+  ['E16','The load is in EX: mem_read_e = 1, rd_e = x2.'],
+  ['E09','The instruction in ID uses x2.'],
+  ['n:haz','stall_d = valid_d && mem_read_e && rd_e ≠ 0 && a source matches.'],
+  ['E17','stall_d holds pc_f and IF/ID (the next-PC select picks “hold”).'],
+  ['E15','ID/EX control is cleared: a bubble enters EX.'],
+  ['n:exmem','Next cycle the load is in MEM and the bubble in EX. A load in MEM is never forwarded from.'],
+  ['E42','The load reads dmem_rdata…'],['E43','…and extracts load_value_m.'],
+  ['E45','The load reaches WB as the consumer reaches EX.'],
+  ['E47','FWD_WB supplies the loaded value.']]},
+ {g:'Traps',id:'trapex',name:'ECALL, EBREAK or illegal (trap in EX)',desc:'Decoded in ID, acted on in EX. No CSRs, no vector: the core stops.',steps:[
+  ['E07','The decoder sets is_halt (ECALL 0x00000073, EBREAK 0x00100073) or is_illegal (CSR ops, bad funct, unknown opcode). Illegal clears every side-effect control.'],
+  ['E10','trap_e = is_halt_d | is_illegal_d is latched into ID/EX.'],
+  ['E28','trap_e reaches the redirect & trap logic.'],
+  ['n:redir','trap_ex = valid_e && (trap_e || misal_tgt_e).'],
+  ['E32','flush_if_id squashes the fetch…'],['E33','…and flush_id_ex squashes the instruction in ID.'],
+  ['E34','halted ← 1 at the clock edge. It is sticky.'],
+  ['E37','From now on pc_n = pc_f and IF/ID, ID/EX flush every cycle.'],
+  ['E44','The trapping instruction still flows to WB but writes nothing.'],
+  ['E50','It retires with rvfi_halt = 1 (and rvfi_trap = 1 unless ECALL/EBREAK).'],
+  ['E51','The testbench stops after the halting retirement.']]},
+ {g:'Traps',id:'trapmis',name:'Misaligned branch / jump target',desc:'Found by riscv-formal: before the fix the core jumped to the misaligned address.',steps:[
+  ['E25','target_add_e = pc_e + imm_e.'],['E24','br_taken_e (or is_jal_e / is_jalr_e).'],
+  ['E27','misal_tgt_e: target[1:0] ≠ 0 (JALR: bit 1).'],
+  ['n:redir','redirect_ex is suppressed and trap_ex is raised; rw_m = reg_write_e && !misal_tgt_e, so no link write.'],
+  ['E32','flush_if_id.'],['E33','flush_id_ex.'],['E34','halted ← 1.'],['E37','PC holds.'],['E50','Retires with rvfi_trap, next pc = pc + 4.']]},
+ {g:'Traps',id:'trapmem',name:'Misaligned load / store (trap in MEM)',desc:'The access is suppressed and the instruction one behind is squashed as well.',steps:[
+  ['E38','MEM: the LSU sees funct3 and addr[1:0].'],
+  ['E40','misaligned_m: halfword at an odd address, or word not 4-aligned.'],
+  ['n:memtrap','trap_mem = mem_access_m && misaligned_m. dmem_re and dmem_we stay low.'],
+  ['E36','EX/MEM is cleared: the instruction in EX is squashed.'],
+  ['E32','flush_if_id.'],['E33','flush_id_ex.'],
+  ['E35','halted ← 1.'],
+  ['E45','rw_w = rw_m && !trap_mem: no register write.'],
+  ['E50','Retires with rvfi_halt and rvfi_trap.'],['E37','PC holds from the next cycle.']]},
+ {g:'Verification',id:'verify',name:'RVFI lock-step and bound assertions',desc:'How each retirement and each control decision is checked.',steps:[
+  ['E50','At WB each valid instruction produces an RVFI record.'],
+  ['E51','tb_core writes it as a trace line.'],
+  ['n:iss','rviss.py runs the same program independently; compare_trace.py checks every field, then the final memory.'],
+  ['E52','rv32i_checker observes the forwarding selects and the stall, in both directions…'],
+  ['E53','…and redirects, traps, halted, store strobes and the RVFI output.'],
+  ['n:chk','73 deliberate RTL bugs were all caught; 13 of them only by an assertion.']]},
+];
+
+// ============================================================================================ rendering
+const NS='http://www.w3.org/2000/svg';
+const svg=document.getElementById('diagram');
+function mk(tag,attrs={},parent){ const e=document.createElementNS(NS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+const STAGES=[{k:'IF',n:'Fetch',x:10,w:236,c:'--stage-if'},{k:'ID',n:'Decode',x:274,w:302,c:'--stage-id'},{k:'EX',n:'Execute',x:604,w:342,c:'--stage-ex'},{k:'MEM',n:'Memory',x:974,w:242,c:'--stage-mem'},{k:'WB',n:'Write-back',x:1244,w:252,c:'--stage-wb'}];
+const occText={};
+function build(){
+  const defs=mk('defs',{},svg);
+  const pat=mk('pattern',{id:'dots',width:16,height:16,patternUnits:'userSpaceOnUse'},defs); mk('circle',{cx:1,cy:1,r:.9,class:'dotgrid'},pat);
+  for(const t of Object.keys(TYPES)){ const m=mk('marker',{id:'ar-'+t,viewBox:'0 0 10 10',refX:9,refY:5,markerWidth:7,markerHeight:7,orient:'auto-start-reverse'},defs); mk('path',{d:'M0 0L10 5L0 10z',class:'mk-'+t},m); }
+  mk('rect',{x:0,y:0,width:1500,height:790,fill:'url(#dots)'},svg);
+  // stage bands + headers
+  const gb=mk('g',{},svg);
+  for(const s of STAGES){
+    mk('rect',{x:s.x,y:12,width:s.w,height:668,class:'band',rx:4,opacity:.55},gb);
+    mk('rect',{x:s.x,y:12,width:s.w,height:4,fill:`var(${s.c})`,rx:2},gb);
+    const t=mk('text',{x:s.x+10,y:36,class:'bandlbl',fill:`var(${s.c})`},gb); t.textContent=s.k+' · '+s.n;
+    const o=mk('text',{x:s.x+10,y:55,class:'occ'},gb); o.textContent='—'; occText[s.k]=o;
+  }
+  mk('rect',{x:6,y:72,width:1488,height:618,class:'boundary',rx:6},gb);
+  const bl=mk('text',{x:1488,y:686,class:'boundlbl','text-anchor':'end'},gb); bl.textContent='rv32i_core boundary';
+  const bl2=mk('text',{x:1488,y:786,class:'boundlbl','text-anchor':'end'},gb); bl2.textContent='testbench + verification (outside the core)';
+  // edges
+  const ge=mk('g',{id:'edges'},svg);
+  for(const e of EDGES){
+    const g=mk('g',{class:'edge t-'+e.type,'data-id':e.id},ge);
+    const d='M'+e.pts.map(p=>p.join(' ')).join(' L');
+    e.path=mk('path',{d,class:'ln','marker-end':`url(#ar-${e.type})`},g);
+    mk('path',{d,class:'hit'},g);
+    e.g=g; e.len=e.path.getTotalLength();
+    g.addEventListener('mouseenter',ev=>showTip(ev,`<b>${e.label}</b><br><span class="muted">${nodeName(e.from)} → ${nodeName(e.to)} · ${TYPES[e.type]}</span>${e.desc?'<br>'+e.desc:''}`));
+    g.addEventListener('mousemove',moveTip); g.addEventListener('mouseleave',hideTip);
+    g.addEventListener('click',()=>inspectEdge(e.id));
+  }
+  // bars
+  const gbar=mk('g',{},svg);
+  for(const [id,b] of Object.entries(BARS)){
+    const g=mk('g',{class:'bar','data-id':id,tabindex:0,role:'button','aria-label':b.t+' pipeline register'},gbar);
+    mk('rect',{x:b.x,y:150,width:18,height:510,rx:3,class:'reg'},g);
+    const t=mk('text',{x:b.x+13,y:405,transform:`rotate(-90 ${b.x+13} 405)`,'text-anchor':'middle'},g); t.textContent=b.t+' register';
+    b.g=g; g.addEventListener('click',()=>inspectNode(id)); g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();inspectNode(id);}});
+  }
+  // nodes
+  const gn=mk('g',{},svg);
+  for(const [id,n] of Object.entries(NODES)){
+    const g=mk('g',{class:'node'+(n.ext?' ext':'')+(n.ver?' ver':''),'data-id':id,tabindex:0,role:'button','aria-label':n.t},gn);
+    mk('rect',{x:n.x,y:n.y,width:n.w,height:n.h,rx:5,class:'box'},g);
+    let y=n.y+19; const t=mk('text',{x:n.x+10,y,class:'nt'},g); t.textContent=n.t;
+    y+=15; const s=mk('text',{x:n.x+10,y,class:'ns'},g); s.textContent=n.s;
+    for(const l of (n.l||[])){ y+=14; if(y>n.y+n.h-6) break; const tl=mk('text',{x:n.x+10,y,class:'nl'},g); tl.textContent=l; }
+    n.g=g; g.addEventListener('click',()=>inspectNode(id)); g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();inspectNode(id);}});
+  }
+  mk('g',{id:'labels'},svg);
+  mk('g',{id:'particles'},svg);
+}
+function nodeName(id){ return NODES[id]?NODES[id].t:BARS[id]?BARS[id].t+' register':id; }
+
+// tooltip
+const tip=document.getElementById('tip');
+function showTip(ev,html){ tip.innerHTML=html; tip.hidden=false; moveTip(ev); }
+function moveTip(ev){ const x=Math.min(ev.clientX+14,window.innerWidth-tip.offsetWidth-8), y=Math.min(ev.clientY+14,window.innerHeight-tip.offsetHeight-8); tip.style.left=x+'px'; tip.style.top=y+'px'; }
+function hideTip(){ tip.hidden=true; }
+
+// legend
+const hiddenTypes=new Set();
+function buildLegend(){
+  const lg=document.getElementById('legend');
+  for(const [t,name] of Object.entries(TYPES)){
+    const b=document.createElement('button'); b.className='lg'; b.setAttribute('aria-pressed','true');
+    b.innerHTML=`<svg viewBox="0 0 30 10"><g class="edge t-${t}"><path class="ln" d="M1 5 L24 5" marker-end="url(#ar-${t})"/></g></svg>${name}`;
+    b.onclick=()=>{ const on=b.getAttribute('aria-pressed')==='true'; b.setAttribute('aria-pressed',on?'false':'true'); on?hiddenTypes.add(t):hiddenTypes.delete(t); applyHidden(); };
+    lg.appendChild(b);
+  }
+  const reg=document.createElement('span'); reg.className='lg'; reg.style.cursor='default';
+  reg.innerHTML=`<svg viewBox="0 0 30 10"><rect x="11" y="0" width="8" height="10" rx="1.5" fill="var(--surface-2)" stroke="var(--ink)" stroke-opacity=".5"/></svg>Pipeline register (posedge clk)`;
+  lg.appendChild(reg);
+  const n=document.createElement('span'); n.className='note'; n.textContent='Hover a wire for its signals'; lg.appendChild(n);
+}
+function applyHidden(){ for(const e of EDGES) e.g.classList.toggle('hidden',hiddenTypes.has(e.type)); rebuildParticles(); }
+
+// ============================================================================================ inspector
+const inspSlot=document.getElementById('insp-slot');
+let selNode=null;
+function esc(s){ return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function li(arr){ return arr&&arr.length?'<ul>'+arr.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>':'<span class="muted">—</span>'; }
+function inspectNode(id){
+  const n=NODES[id]||BARS[id]; if(!n) return;
+  if(selNode) (NODES[selNode]||BARS[selNode]).g.classList.remove('sel');
+  selNode=id; n.g.classList.add('sel');
+  const ins=EDGES.filter(e=>e.to===id), outs=EDGES.filter(e=>e.from===id);
+  const conn=(arr,dir)=>arr.length?'<ul>'+arr.map(e=>`<li><a href="#" data-e="${e.id}" class="mono" style="color:var(--${e.type==='data'?'data':e.type})">${esc(e.label)}</a> <span class="muted small">${dir} ${esc(nodeName(dir==='from'?e.from:e.to))}</span></li>`).join('')+'</ul>':'<span class="muted">—</span>';
+  const isBar=!!BARS[id];
+  inspSlot.innerHTML=`<div class="insp" role="region" aria-label="Inspector">
+    <div class="ih"><div><div class="eyebrow">${isBar?'pipeline register':(n.stage?n.stage+' stage':'outside the core')}</div><h3>${esc(isBar?n.t+' register':n.t)}</h3><div class="file">${esc(n.file)}</div></div><button class="x" aria-label="Close inspector">×</button></div>
+    <p class="small">${esc(n.role)}</p>
+    <dl class="kv">
+      <dt>Does</dt><dd>${li(n.resp)}</dd>
+      ${isBar?'':`<dt>Inputs</dt><dd>${li(n.in)}</dd><dt>Outputs</dt><dd>${li(n.out)}</dd><dt>Depends on</dt><dd>${li(n.deps)}</dd>`}
+      <dt>Wires in</dt><dd>${conn(ins,'from')}</dd>
+      <dt>Wires out</dt><dd>${conn(outs,'to')}</dd>
+    </dl>
+    <pre class="code">${esc(n.code)}</pre></div>`;
+  inspSlot.querySelector('.x').onclick=closeInspector;
+  inspSlot.querySelectorAll('a[data-e]').forEach(a=>a.onclick=ev=>{ev.preventDefault();inspectEdge(a.dataset.e);});
+  if(mode==='explore') focusNode(id);
+  document.getElementById('panel').scrollTop=0;
+}
+function inspectEdge(eid){
+  const e=EMAP[eid];
+  if(selNode){ (NODES[selNode]||BARS[selNode]).g.classList.remove('sel'); selNode=null; }
+  inspSlot.innerHTML=`<div class="insp" role="region" aria-label="Inspector">
+    <div class="ih"><div><div class="eyebrow">wire · ${esc(TYPES[e.type])}</div><h3 class="mono" style="font-size:14px">${esc(e.label)}</h3></div><button class="x" aria-label="Close inspector">×</button></div>
+    <dl class="kv"><dt>From</dt><dd><a href="#" data-n="${e.from}">${esc(nodeName(e.from))}</a></dd><dt>To</dt><dd><a href="#" data-n="${e.to}">${esc(nodeName(e.to))}</a></dd>
+    ${e.desc?`<dt>Meaning</dt><dd>${esc(e.desc)}</dd>`:''}
+    <dt>Used in</dt><dd>${li(PATHS.filter(p=>p.steps.some(s=>s[0]===eid)).map(p=>p.name))}</dd></dl></div>`;
+  inspSlot.querySelector('.x').onclick=closeInspector;
+  inspSlot.querySelectorAll('a[data-n]').forEach(a=>a.onclick=ev=>{ev.preventDefault();inspectNode(a.dataset.n);});
+  if(mode==='explore') focusEdges([eid],[e.from,e.to]);
+}
+function closeInspector(){ inspSlot.innerHTML=''; if(selNode){(NODES[selNode]||BARS[selNode]).g.classList.remove('sel'); selNode=null;} if(mode==='explore') clearFocus(); }
+
+// ============================================================================================ focus helpers
+function clearOn(){ svg.querySelectorAll('.on').forEach(x=>x.classList.remove('on')); }
+function clearFocus(){ svg.classList.remove('focus'); clearOn(); clearLabels(); rebuildParticles(); }
+function focusNode(id){ const es=EDGES.filter(e=>e.from===id||e.to===id).map(e=>e.id); const ns=new Set([id]); es.forEach(x=>{ns.add(EMAP[x].from);ns.add(EMAP[x].to);}); focusEdges(es,[...ns]); }
+function focusEdges(eids,nids){ svg.classList.add('focus'); clearOn(); eids.forEach(x=>EMAP[x].g.classList.add('on')); nids.forEach(n=>(NODES[n]||BARS[n])?.g.classList.add('on')); drawLabels(eids); rebuildParticles(eids); }
+function clearLabels(){ document.getElementById('labels').innerHTML=''; }
+function drawLabels(eids){
+  clearLabels(); const gl=document.getElementById('labels');
+  for(const id of eids){ const e=EMAP[id]; if(hiddenTypes.has(e.type)) continue;
+    let best=0,bi=0; for(let i=0;i<e.pts.length-1;i++){ const L=Math.hypot(e.pts[i+1][0]-e.pts[i][0],e.pts[i+1][1]-e.pts[i][1]); if(L>best){best=L;bi=i;} }
+    const [a,b]=[e.pts[bi],e.pts[bi+1]]; const x=(a[0]+b[0])/2, y=(a[1]+b[1])/2;
+    const g=mk('g',{class:'elbl'},gl); const t=mk('text',{x,y:y+3.5,'text-anchor':'middle'},g); t.textContent=e.label;
+    const bb=t.getBBox(); const r=mk('rect',{x:bb.x-4,y:bb.y-2,width:bb.width+8,height:bb.height+4,rx:3}); g.insertBefore(r,t);
+  }
+}
+
+// ============================================================================================ animation engine
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let mode='sim', playing=!reduce, speed=1, last=performance.now(), T=0;
+let pl=null;   // particle layer, created by build()
+let parts=[];
+function rebuildParticles(only){
+  pl.innerHTML=''; parts=[];
+  if(mode!=='explore') return;
+  const list=(only&&only.length)?only.map(x=>EMAP[x]):EDGES;
+  for(const e of list){ if(hiddenTypes.has(e.type)) continue;
+    const n=Math.max(1,Math.round(e.len/150));
+    for(let i=0;i<n;i++){ const c=mk('circle',{r:3,class:'p-'+e.type},pl); parts.push({e,c,off:i/n}); } }
+}
+function placeAt(c,e,u){ const p=e.path.getPointAtLength(Math.max(0,Math.min(1,u))*e.len); c.setAttribute('cx',p.x); c.setAttribute('cy',p.y); }
+function frame(now){
+  const dt=Math.min(.1,(now-last)/1000); last=now;
+  if(playing){ T+=dt*speed; tick(dt*speed); }
+  if(mode==='explore'){ for(const p of parts){ const u=((T*55/p.e.len)+p.off)%1; placeAt(p.c,p.e,u); } }
+  requestAnimationFrame(frame);
+}
+function tick(dt){ if(mode==='sim') simTick(dt); else if(mode==='path') pathTick(dt); }
+
+// transient particle trains for sim/path
+function train(eids,u,cls){
+  pl.innerHTML='';
+  for(const id of eids){ const e=EMAP[id]; if(!e||hiddenTypes.has(e.type)) continue;
+    const n=e.len>260?3:e.len>90?2:1;
+    for(let i=0;i<n;i++){ const uu=u-i*0.09; if(uu<0||uu>1) continue; const c=mk('circle',{r:i===0?4:3,class:'p-'+e.type+(cls?' '+cls:''),opacity:1-i*.28},pl); placeAt(c,e,uu); } }
+}
+
+// ============================================================================================ PATH mode
+let curPath=null, pstep=0, pphase=0;
+function buildPathList(){
+  const box=document.getElementById('pathlist'); box.innerHTML='';
+  const groups=[...new Set(PATHS.map(p=>p.g))];
+  for(const g of groups){ const d=document.createElement('div'); d.className='pgroup'; d.innerHTML=`<div class="gl">${g}</div>`;
+    for(const p of PATHS.filter(p=>p.g===g)){ const b=document.createElement('button'); b.className='pbtn'; b.textContent=p.name; b.dataset.id=p.id; b.setAttribute('aria-pressed','false'); b.onclick=()=>selectPath(p.id); d.appendChild(b); }
+    box.appendChild(d); }
+}
+function selectPath(id){
+  curPath=PATHS.find(p=>p.id===id); pstep=0; pphase=0;
+  document.querySelectorAll('#pathlist .pbtn').forEach(b=>b.setAttribute('aria-pressed',b.dataset.id===id?'true':'false'));
+  const ol=document.getElementById('steps'); ol.innerHTML='';
+  curPath.steps.forEach((s,i)=>{ const li=document.createElement('li'); li.textContent=s[1]; li.onclick=()=>{pstep=i;pphase=0;renderPath();}; ol.appendChild(li); });
+  renderPath();
+}
+function stepEdges(upto){ const s=new Set(); for(let i=0;i<=upto&&i<curPath.steps.length;i++){ const k=curPath.steps[i][0]; if(!k.startsWith('n:')) s.add(k);} return [...s]; }
+function renderPath(){
+  if(!curPath) return;
+  const st=curPath.steps[pstep]; const k=st[0];
+  const eids=stepEdges(pstep);
+  const nids=new Set(); eids.forEach(x=>{nids.add(EMAP[x].from);nids.add(EMAP[x].to);});
+  curPath.steps.slice(0,pstep+1).forEach(s=>{ if(s[0].startsWith('n:')) nids.add(s[0].slice(2)); });
+  svg.classList.add('focus'); clearOn(); eids.forEach(x=>EMAP[x].g.classList.add('on')); nids.forEach(n=>(NODES[n]||BARS[n])?.g.classList.add('on'));
+  svg.querySelectorAll('.node.live,.bar.live').forEach(x=>x.classList.remove('live'));
+  if(k.startsWith('n:')) (NODES[k.slice(2)]||BARS[k.slice(2)]).g.classList.add('live'); else { (NODES[EMAP[k].to]||BARS[EMAP[k].to])?.g.classList.add('live'); }
+  drawLabels(k.startsWith('n:')?[]:[k]);
+  document.getElementById('caption').innerHTML=`<b>${pstep+1} / ${curPath.steps.length}</b> · ${esc(st[1])}`;
+  document.querySelectorAll('#steps li').forEach((li,i)=>{ li.className=i<pstep?'done':i===pstep?'cur':''; });
+  const cur=document.querySelector('#steps li.cur'); if(cur&&cur.scrollIntoView&&mode==='path'){ const p=document.getElementById('panel'); const r=cur.getBoundingClientRect(), pr=p.getBoundingClientRect(); if(r.bottom>pr.bottom||r.top<pr.top) p.scrollTop+=r.top-pr.top-pr.height/2; }
+  if(!k.startsWith('n:')) train([k],0); else pl.innerHTML='';
+}
+function pathTick(dt){
+  if(!curPath) return;
+  const dur=1.5; pphase+=dt/dur;
+  const k=curPath.steps[pstep][0];
+  if(!k.startsWith('n:')) train([k],Math.min(1.2,pphase*1.15));
+  if(pphase>=1){ pphase=0; if(pstep<curPath.steps.length-1){ pstep++; renderPath(); } else { pphase=-0.8; pstep=0; renderPath(); } }
+}
+
+// ============================================================================================ SIM mode
+let prog, S, R, BP=0, cyc=0, tags=[], simPhase=0, done=false, logRows=[], trackTag=null, lastRegs=null, stats;
+const STAGE_COLORS={F:'--stage-if',D:'--stage-id',X:'--stage-ex',M:'--stage-mem',W:'--stage-wb'};
+function asmAt(pc){ const it=prog.items.find(i=>i.pc===pc); return it?it.code.replace(/\s+/g,' '):`.word ${hex(S.mem.get(pc>>>2)??0)}`; }
+function newTag(pc){ const t={id:tags.length,pc,asm:asmAt(pc),cells:{},notes:[],sq:false,ret:false,color:`var(--t${tags.length%8})`}; tags.push(t); return t.id; }
+function simReset(){
+  const sc=SCENARIOS.find(s=>s.id===document.getElementById('scenario').value)||SCENARIOS[0];
+  prog=assemble(sc.src,0x1000); S=resetState(prog); cyc=0; tags=[]; done=false; logRows=[]; trackTag=null; simPhase=0;
+  stats={ret:0,lu:0,rex:0,rid:0};
+  document.getElementById('scen-desc').textContent=sc.desc;
+  enterCycle();
+  renderListing(); renderChart(); renderRegs(); renderLog(); renderJourney();
+}
+function note(tag,c,s,txt){ if(tag==null) return; tags[tag].notes.push({c,s,txt}); }
+function enterCycle(){
+  cyc++;
+  if(!S.halted && S.fetchTag==null) S.fetchTag=newTag(S.pc);
+  R=cycle(S,BP); const g=R.sig, ev=[];
+  const T_=t=>t==null?'':tags[t].asm;
+  // stage records
+  if(!S.halted && S.fetchTag!=null){ const t=tags[S.fetchTag];
+    t.cells[cyc]= g.flush_if_id?'Fq':(g.stall?'Fs':'F');
+    note(S.fetchTag,cyc,'F',g.flush_if_id?`fetched at ${hexs(S.pc)}, squashed by ${g.redirect_ex?'redirect_ex':g.redirect_id?'redirect_id':g.trap_ex?'trap_ex':'trap_mem'}`:g.stall?`fetch held at ${hexs(S.pc)} (stall_d)`:`fetched from ${hexs(S.pc)} → ${hex(g.imem_rdata)}`);
+    if(g.flush_if_id) t.sq=true; }
+  if(S.ifid.valid&&S.ifid.tag!=null){ const t=tags[S.ifid.tag]; const sq=g.flush_id_ex;
+    t.cells[cyc]=sq?'Dq':(g.stall?'Ds':'D');
+    const d=g.d; let s=g.stall?`stalled: needs x${(d.uses_rs1&&d.rs1===S.idex.rd)?d.rs1:d.rs2} from the load in EX`:`decoded: ${d.is_illegal?'ILLEGAL':d.is_halt?'halt (ECALL/EBREAK)':ALUN[d.alu_op]+(d.mem_read?' load':d.mem_write?' store':d.is_branch?' branch':d.is_jal?' jal':d.is_jalr?' jalr':'')}`;
+    if(!g.stall&&(d.uses_rs1||d.uses_rs2)) s+=`; reads ${d.uses_rs1?'x'+d.rs1:''}${d.uses_rs2?' x'+d.rs2:''}`;
+    if(g.byp1||g.byp2) s+=` (regfile bypass for x${g.byp1?d.rs1:d.rs2})`;
+    if(g.redirect_id) s+=`; predicted taken → redirect_id to ${hexs(g.target_id)}`;
+    if(sq) s=`squashed in ID by ${g.redirect_ex?'redirect_ex':g.trap_ex?'trap_ex':'trap_mem'}`;
+    note(S.ifid.tag,cyc,'D',s); if(sq) t.sq=true; }
+  if(S.idex.valid&&S.idex.tag!=null){ const t=tags[S.idex.tag]; const sq=g.trap_mem; t.cells[cyc]=sq?'Xq':'X';
+    const e=S.idex; let s=sq?'squashed in EX by trap_mem':'';
+    if(!sq){ const parts=[];
+      if(e.uses1) parts.push(`rs1=${hexs(g.rs1f)}${g.fwd_a?(g.fwd_a===1?' [MEM→EX]':' [WB→EX]'):''}`);
+      if(e.uses2) parts.push(`rs2=${hexs(g.rs2f)}${g.fwd_b?(g.fwd_b===1?' [MEM→EX]':' [WB→EX]'):''}`);
+      parts.push(e.is_branch?`branch ${g.br_taken?'taken':'not taken'}`:`alu=${hexs(g.y)}`);
+      if(g.misal) parts.push('misaligned target → trap_ex');
+      else if(e.trap) parts.push('trap_e → trap_ex');
+      if(g.redirect_ex) parts.push(`redirect_ex → ${hexs(g.target_ex)}`);
+      s=parts.join('; '); }
+    note(S.idex.tag,cyc,'X',s); if(sq) t.sq=true; }
+  if(S.exmem.valid&&S.exmem.tag!=null){ const t=tags[S.exmem.tag]; t.cells[cyc]='M';
+    let s=g.trap_mem?`misaligned access at ${hexs(S.exmem.alu)} → trap_mem`:g.dre?`load ${hexs(g.daddr)} → ${hex(g.rdata)}, value ${hexs(g.load_value)}`:g.dwe?`store strobes ${g.dwe.toString(2).padStart(4,'0')} data ${hex(g.wdata)} @ ${hexs(g.daddr)}`:'no memory access';
+    note(S.exmem.tag,cyc,'M',s); }
+  if(S.memwb.valid&&S.memwb.tag!=null){ const t=tags[S.memwb.tag]; t.cells[cyc]='W'; t.ret=true;
+    const r=g.retire; let s=r.rd?`x${r.rd} ← ${hexs(r.data)}; retired`:'retired (no register write)'; if(r.halt) s+=r.trap?' with halt + trap':' with halt';
+    note(S.memwb.tag,cyc,'W',s); }
+  // events
+  if(g.retire){ stats.ret++; ev.push(['ret',`retire ${T_(g.retire.tag)}${g.retire.rd?`  x${g.retire.rd} ← ${hexs(g.retire.data)}`:''}${g.retire.halt?(g.retire.trap?'  [rvfi_halt, rvfi_trap]':'  [rvfi_halt]'):''}`]); }
+  if(g.stall){ stats.lu++; ev.push(['ctl',`stall_d: ${T_(S.ifid.tag)} waits for the load in EX; bubble into ID/EX`]); }
+  if(S.idex.valid){ if(g.fwd_a&&S.idex.uses1) ev.push(['fwd',`fwd_a = ${g.fwd_a===1?'FWD_MEM':'FWD_WB'} (x${S.idex.rs1} = ${hexs(g.rs1f)})`]);
+    if(g.fwd_b&&S.idex.uses2) ev.push(['fwd',`fwd_b = ${g.fwd_b===1?'FWD_MEM':'FWD_WB'} (x${S.idex.rs2} = ${hexs(g.rs2f)})`]); }
+  if(g.byp1||g.byp2) ev.push(['fwd',`regfile write-first bypass: x${g.byp1?g.d.rs1:g.d.rs2} read in ID as it is written`]);
+  if(g.redirect_id){ stats.rid++; ev.push(['ctl',`redirect_id → ${hexs(g.target_id)} (${g.d.is_jal?'JAL':'backward branch predicted taken'}); flush IF/ID`]); }
+  if(g.redirect_ex){ stats.rex++; ev.push(['ctl',`redirect_ex → ${hexs(g.target_ex)} (${S.idex.is_jalr?'JALR':S.idex.is_jal?'JAL':BP?'misprediction repaired':'taken branch'}); flush IF/ID + ID/EX`]); }
+  if(g.trap_ex) ev.push(['trap',`trap_ex: ${g.misal?'misaligned branch/jump target':S.idex.halt?'ECALL/EBREAK':'illegal instruction'}; squash younger, halted ← 1`]);
+  if(g.trap_mem) ev.push(['trap',`trap_mem: misaligned access at ${hexs(S.exmem.alu)}; dmem suppressed, EX squashed, halted ← 1`]);
+  if(g.dwe) ev.push(['mem',`dmem write ${hexs(g.daddr)} strobes ${g.dwe.toString(2).padStart(4,'0')} data ${hex(g.wdata)}`]);
+  if(g.dre) ev.push(['mem',`dmem read ${hexs(g.daddr)} → ${hex(g.rdata)}`]);
+  if(S.halted) ev.push(['info','halted: pc held, IF/ID and ID/EX flushing']);
+  ev.forEach(x=>logRows.unshift([cyc,x[0],x[1]]));
+  if(g.retire&&g.retire.halt) { done=true; logRows.unshift([cyc,'info','halting retirement: the testbench ends the run here']); }
+  paintCycle();
+}
+function activeEdges(){
+  const g=R.sig, e=S.idex, m=S.exmem, w=S.memwb, a=new Set();
+  const add=(...x)=>x.forEach(i=>a.add(i));
+  if(!S.halted){ add('E01','E06'); if(!g.flush_if_id&&!g.stall) add('E02','E03'); if(g.pcwhy==='pc+4') add('E04','E05'); }
+  else add('E37','E06');
+  if(g.valid_d){ add('E07','E08','E09'); if(!g.bubble) add('E10','E11'); if((g.fwd_a_d||g.fwd_b_d)&&!g.bubble&&(g.d.uses_rs1||g.d.uses_rs2)) add('E14');
+    if(BP&&(g.d.is_jal||g.d.is_branch)) add('E12','E13'); }
+  if(g.redirect_id) add('E18');
+  if(g.stall) add('E15','E17','E16');
+  if(g.valid_d&&e.valid) add('E16');
+  if(g.valid_d&&(m.rw||w.rw)) add('E49');
+  if(e.valid){ add('E19','E20','E22','E29','E28'); if(e.a_sel!==A_RS1||e.b_imm) add('E21');
+    if(e.is_branch) add('E23','E24','E25','E27'); if(e.is_jal) add('E25','E27'); if(e.is_jalr) add('E26','E27'); if(e.mem_write) add('E30');
+    if(g.fwd_a===FWD_MEM&&e.uses1||g.fwd_b===FWD_MEM&&e.uses2) add('E48');
+    if(g.fwd_a===FWD_WB&&e.uses1||g.fwd_b===FWD_WB&&e.uses2) add('E47'); }
+  if(g.redirect_ex) add('E31','E32','E33');
+  if(g.trap_ex) add('E34','E32','E33');
+  if(m.valid){ if(g.access){ add('E38','E39'); if(g.trap_mem) add('E40'); }
+    if(g.dre) add('E41','E42','E43'); if(g.dwe) add('E41'); if(!g.dre) add('E44'); }
+  if(g.trap_mem) add('E35','E36','E32','E33');
+  if(w.valid){ add('E45','E50','E51'); if(w.rw&&w.rd!==0) add('E46'); }
+  return [...a];
+}
+function paintCycle(){
+  const g=R.sig;
+  document.getElementById('cyc-n').textContent=cyc;
+  const act=activeEdges(); R.act=act;
+  svg.classList.add('focus'); clearOn();
+  act.forEach(id=>EMAP[id].g.classList.add('on'));
+  const nids=new Set(); act.forEach(id=>{ nids.add(EMAP[id].from); nids.add(EMAP[id].to); });
+  nids.forEach(n=>(NODES[n]||BARS[n])?.g.classList.add('on'));
+  svg.querySelectorAll('.trapped,.stalled,.flushed,.held,.live').forEach(x=>x.classList.remove('trapped','stalled','flushed','held','live'));
+  if(g.stall){ NODES.haz.g.classList.add('stalled'); BARS.ifid.g.classList.add('held'); }
+  if(g.trap_ex) NODES.redir.g.classList.add('trapped');
+  if(g.trap_mem) NODES.memtrap.g.classList.add('trapped');
+  if(S.halted) NODES.halt.g.classList.add('trapped');
+  if(g.flush_if_id) BARS.ifid.g.classList.add('flushed');
+  if(g.flush_id_ex||g.stall) BARS.idex.g.classList.add(g.flush_id_ex?'flushed':'held');
+  if(g.trap_mem) BARS.exmem.g.classList.add('flushed');
+  // occupancy
+  const occ=(k,tag,extra)=>{ const o=occText[k]; if(tag==null){ o.textContent=extra||'bubble'; o.classList.remove('live'); o.removeAttribute('fill'); return; }
+    const t=tags[tag]; o.textContent=`${hexs(t.pc)}  ${t.asm}${extra?'  '+extra:''}`; o.classList.add('live'); o.setAttribute('fill',trackTag===tag?'var(--accent)':''); if(trackTag!==tag) o.removeAttribute('fill'); };
+  occ('IF',S.halted?null:S.fetchTag,S.halted?'held (halted)':(g.stall?'(held)':g.flush_if_id?'(squashed)':''));
+  occ('ID',S.ifid.valid?S.ifid.tag:null,g.stall?'(stall)':g.flush_id_ex?'(squashed)':'');
+  occ('EX',S.idex.valid?S.idex.tag:null,g.trap_mem?'(squashed)':g.trap_ex?'(trap)':'');
+  occ('MEM',S.exmem.valid?S.exmem.tag:null,g.trap_mem?'(trap)':'');
+  occ('WB',S.memwb.valid?S.memwb.tag:null,'');
+  // chips
+  const chips=[['stall_d',g.stall,'ctl'],['redirect_id',g.redirect_id,'ctl'],['redirect_ex',g.redirect_ex,'ctl'],['flush_if_id',g.flush_if_id,'ctl'],['flush_id_ex',g.flush_id_ex,'ctl'],
+    ['fwd_a='+(['NONE','MEM','WB'][S.idex.valid&&S.idex.uses1?g.fwd_a:0]),S.idex.valid&&S.idex.uses1&&g.fwd_a,'fwd'],['fwd_b='+(['NONE','MEM','WB'][S.idex.valid&&S.idex.uses2?g.fwd_b:0]),S.idex.valid&&S.idex.uses2&&g.fwd_b,'fwd'],
+    ['dmem_re',g.dre,'mem'],['dmem_we='+g.dwe.toString(2).padStart(4,'0'),!!g.dwe,'mem'],['trap_ex',g.trap_ex,'trap'],['trap_mem',g.trap_mem,'trap'],['halted',!!S.halted,'trap']];
+  document.getElementById('sigchips').innerHTML=chips.map(c=>`<span class="chip c-${c[2]}${c[1]?' on':''}">${c[0]}</span>`).join('');
+  document.getElementById('st-ret').textContent=stats.ret; document.getElementById('st-lu').textContent=stats.lu; document.getElementById('st-rd').textContent=stats.rex+' / '+stats.rid;
+  renderListingStages(); renderChart(); renderLog(); renderJourney();
+}
+function commitCycle(){
+  // clock edge: pulse registers, advance state
+  for(const b of Object.values(BARS)){ b.g.classList.add('pulse'); setTimeout(()=>b.g.classList.remove('pulse'),Math.max(120,260/speed)); }
+  lastRegs=S.regs.slice(); S=R.N; renderRegs(); enterCycle();
+}
+function simTick(dt){
+  if(done){ pl.innerHTML=''; return; }
+  const dur=1.7; simPhase+=dt/dur;
+  train(R.act||[],Math.min(1,simPhase/0.78));
+  if(simPhase>=1){ simPhase=0; if(cyc>200){done=true;return;} commitCycle(); }
+}
+function simStep(){ if(done) return; simPhase=0; commitCycle(); train(R.act||[],0); }
+
+function renderListing(){
+  const box=document.getElementById('listing'); box.innerHTML='';
+  for(const it of prog.items){
+    if(it.label){ const d=document.createElement('div'); d.className='ln lbl'; d.innerHTML=`<span></span><span></span><span>${it.label}:</span>`; box.appendChild(d); }
+    if(!it.code) continue;
+    const d=document.createElement('div'); d.className='ln'; d.dataset.pc=it.pc;
+    d.innerHTML=`<span class="stg" data-stg></span><span class="addr">${hexs(it.pc)}</span><span>${esc(it.code.replace(/\s+/g,' '))}${it.cm?` <span class="cm"># ${esc(it.cm)}</span>`:''}</span>`;
+    d.onclick=()=>{ const cand=tags.filter(t=>t.pc===it.pc); if(cand.length){ const nonsq=cand.filter(t=>!t.sq); trackTag=(nonsq.length?nonsq:cand).slice(-1)[0].id; } renderChart(); renderJourney(); paintTrack(); };
+    d.title='Follow this instruction'; box.appendChild(d);
+  }
+}
+function renderListingStages(){
+  const map={}; const put=(tag,s)=>{ if(tag!=null) map[tags[tag].pc]=s; };
+  if(!S.halted) put(S.fetchTag,'F'); if(S.ifid.valid) put(S.ifid.tag,'D'); if(S.idex.valid) put(S.idex.tag,'X'); if(S.exmem.valid) put(S.exmem.tag,'M'); if(S.memwb.valid) put(S.memwb.tag,'W');
+  document.querySelectorAll('#listing .ln[data-pc]').forEach(d=>{ const s=map[+d.dataset.pc]; const b=d.querySelector('[data-stg]'); b.textContent=s||''; b.style.background=s?`var(${STAGE_COLORS[s]})`:'transparent'; });
+}
+function renderChart(){
+  const tb=document.getElementById('chart'); const maxC=Math.max(cyc,12);
+  let h='<thead><tr><th class="ins">instruction</th>'; for(let c=1;c<=maxC;c++) h+=`<th${c===cyc?' style="color:var(--ink)"':''}>${c}</th>`; h+='</tr></thead><tbody>';
+  for(const t of tags){
+    h+=`<tr data-t="${t.id}" class="${trackTag===t.id?'sel':''} ${t.sq&&!t.ret?'squashed':''}"><th class="ins" title="${esc(t.asm)}"><span style="color:${t.color}">●</span> ${hexs(t.pc)} ${esc(t.asm)}</th>`;
+    for(let c=1;c<=maxC;c++){ const v=t.cells[c]; let cell='';
+      if(v){ const s=v[0], f=v[1]; const col=`var(${STAGE_COLORS[s]})`; cell=`<span class="cell${f==='s'?' st':f==='q'?' sq':''}" style="background:${col}">${f==='q'?'✕':s}</span>`; }
+      h+=`<td class="${c===cyc?'cur':''}">${cell}</td>`; }
+    h+='</tr>'; }
+  tb.innerHTML=h+'</tbody>';
+  tb.querySelectorAll('tbody tr').forEach(tr=>tr.querySelector('th').onclick=()=>{ trackTag=+tr.dataset.t; renderChart(); renderJourney(); paintTrack(); });
+  const w=document.getElementById('chartwrap'); w.scrollLeft=w.scrollWidth;
+}
+function paintTrack(){ for(const k of Object.keys(occText)) occText[k].removeAttribute('fill');
+  if(trackTag==null) return;
+  const where=[['IF',!S.halted&&S.fetchTag],['ID',S.ifid.valid&&S.ifid.tag],['EX',S.idex.valid&&S.idex.tag],['MEM',S.exmem.valid&&S.exmem.tag],['WB',S.memwb.valid&&S.memwb.tag]];
+  for(const [k,t] of where) if(t===trackTag) occText[k].setAttribute('fill','var(--accent)'); }
+function renderJourney(){
+  const box=document.getElementById('journey'); const hint=document.getElementById('journey-hint');
+  if(trackTag==null){ box.innerHTML=''; hint.hidden=false; return; } hint.hidden=true;
+  const t=tags[trackTag];
+  box.innerHTML=`<div class="small"><span style="color:${t.color}">●</span> <b class="mono">${hexs(t.pc)} ${esc(t.asm)}</b>${t.sq&&!t.ret?' <span style="color:var(--trap)">squashed</span>':t.ret?' <span class="muted">retired</span>':' <span class="muted">in flight</span>'}</div>`+
+   t.notes.map(n=>`<div class="j"><span class="c">C${n.c}</span><span class="s" style="background:var(${STAGE_COLORS[n.s]})">${n.s}</span><span>${esc(n.txt)}</span></div>`).join('');
+}
+function renderRegs(){
+  const box=document.getElementById('regs'); let h='';
+  for(let i=1;i<=12;i++){ const v=S.regs[i]; const chg=lastRegs&&lastRegs[i]!==v; h+=`<div class="reg${chg?' chg':''}${v==null?' unk':''}"><span class="r">x${i}</span><span class="v">${v==null?'—':hex(v)}</span></div>`; }
+  box.innerHTML=h;
+  const mv=document.getElementById('memview'); const data=[...S.mem.entries()].filter(([k])=>k<(0x1000>>>2)||k>=((0x1000>>>2)+prog.words.length)).sort((a,b)=>a[0]-b[0]);
+  mv.innerHTML=data.length?data.map(([k,v])=>`<div class="reg"><span class="r">[${hexs(k*4)}]</span><span class="v">${hex(v)}</span></div>`).join(''):'<span class="small muted">No data memory written yet.</span>';
+}
+function renderLog(){ document.getElementById('log').innerHTML=logRows.slice(0,140).map(r=>`<div class="e k-${r[1]}"><span class="c">C${r[0]}</span><span>${esc(r[2])}</span></div>`).join('')||'<span class="small muted">Events appear as the program runs.</span>'; }
+
+// ============================================================================================ explore list
+function buildModList(){
+  const box=document.getElementById('modlist');
+  const groups=[['IF',['nextpc','pc','add4','ifid']],['ID',['dec','rf','haz','pred','idex']],['EX',['fwd','opsel','alu','bru','tgt','redir','exmem']],['MEM',['memtrap','lsu','memwb']],['WB',['wbmux','halt','rvfi']],['Outside the core',['imem','dmem','chk','iss']]];
+  for(const [g,ids] of groups){ const d=document.createElement('div'); d.className='pgroup'; d.innerHTML=`<div class="gl">${g}</div>`;
+    for(const id of ids){ const b=document.createElement('button'); b.className='pbtn'; b.textContent=nodeName(id); b.onclick=()=>inspectNode(id); d.appendChild(b); } box.appendChild(d); }
+}
+
+// ============================================================================================ mode + controls
+function setMode(m){
+  mode=m; document.body.dataset.mode=m;
+  document.querySelectorAll('.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.mode===m?'true':'false'));
+  clearLabels(); pl.innerHTML=''; svg.querySelectorAll('.trapped,.stalled,.flushed,.held,.live').forEach(x=>x.classList.remove('trapped','stalled','flushed','held','live'));
+  for(const k of Object.keys(occText)){ occText[k].textContent=m==='sim'?'':'—'; occText[k].classList.remove('live'); occText[k].removeAttribute('fill'); }
+  document.getElementById('btn-step').disabled=(m==='explore');
+  if(m==='explore'){ clearFocus(); if(selNode) focusNode(selNode); }
+  if(m==='path'){ if(!curPath) selectPath('alu'); else renderPath(); }
+  if(m==='sim'){ paintCycle(); }
+}
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>setMode(b.dataset.mode));
+function setPlaying(p){ playing=p; document.getElementById('lbl-play').textContent=p?'Pause':'Play'; document.getElementById('btn-play').setAttribute('aria-label',p?'Pause':'Play');
+  document.getElementById('ico-play').innerHTML=p?'<rect x="3" y="2" width="3.5" height="12"/><rect x="9.5" y="2" width="3.5" height="12"/>':'<path d="M3 2l11 6-11 6z"/>'; }
+document.getElementById('btn-play').onclick=()=>{ if(mode==='sim'&&done&&!playing){ simReset(); } setPlaying(!playing); };
+document.getElementById('btn-step').onclick=()=>{ setPlaying(false); if(mode==='sim') simStep(); else if(mode==='path'&&curPath){ pstep=(pstep+1)%curPath.steps.length; pphase=0; renderPath(); } };
+document.getElementById('btn-restart').onclick=()=>{ if(mode==='sim'){ simReset(); } else if(mode==='path'&&curPath){ pstep=0; pphase=0; renderPath(); } else T=0; };
+const sp=document.getElementById('speed'); sp.oninput=()=>{ speed=Math.pow(2,+sp.value); document.getElementById('speed-out').textContent=speed.toFixed(2)+'×'; };
+document.addEventListener('keydown',ev=>{ if(ev.target.closest('input,select,textarea')) return;
+  if(ev.key===' '&&!ev.target.closest('button,[role=button]')){ ev.preventDefault(); document.getElementById('btn-play').click(); }
+  if(ev.key==='ArrowRight'){ document.getElementById('btn-step').click(); }
+  if(ev.key==='Escape') closeInspector(); });
+const scSel=document.getElementById('scenario'); SCENARIOS.forEach(s=>{ const o=document.createElement('option'); o.value=s.id; o.textContent=s.name; scSel.appendChild(o); });
+scSel.onchange=()=>{ simReset(); setPlaying(!reduce); };
+function setBP(v){ BP=v; document.getElementById('bp0').setAttribute('aria-pressed',v?'false':'true'); document.getElementById('bp1').setAttribute('aria-pressed',v?'true':'false');
+  document.getElementById('bp-desc').textContent=v?'JAL + backward branch from ID':'resolve in EX'; simReset(); }
+document.getElementById('bp0').onclick=()=>setBP(0); document.getElementById('bp1').onclick=()=>setBP(1);
+
+build(); pl=document.getElementById('particles'); buildLegend(); buildPathList(); buildModList();
+document.body.dataset.mode='sim';
+simReset();
+for(let i=0;i<4;i++){ S=R.N; enterCycle(); }   // open with the pipeline filling
+renderRegs();
+setPlaying(playing);
+requestAnimationFrame(t=>{last=t;frame(t);});
+</script>
+
+</body>
+</html>
