@@ -12,6 +12,19 @@ None of the numbers in the Results section are typed by hand. `scripts/readme_re
 anything I haven't measured says NOT YET MEASURED, with the command that would measure it. Values in the text such as the
 2.0 ns / 1.0 ns memory budget and the ideal memories are design choices and assumptions, not results.
 
+## Interactive architecture explorer
+
+[![Animated datapath of rv32i_core: click to open the interactive explorer](docs/diagrams/architecture_explorer_preview.svg)](https://abhijeetj-512.github.io/rv32i-core/architecture_explorer.html)
+
+**[Open the interactive explorer](https://abhijeetj-512.github.io/rv32i-core/architecture_explorer.html)** (GitHub Pages). The animation above is a
+preview; the page itself runs example programs through a cycle-accurate JavaScript model of `rv32i_core.sv`, one clock at a time, and
+shows which wires are active, what each pipeline register holds, the stall, forward, redirect and trap signals, and a pipeline chart. It
+also walks step by step through 14 paths (R-type, load, store, both branch modes, JALR, forwarding, the load-use stall, every trap) and
+has an inspector for each block with file and line references. I checked the model against the Verilator build: on all seven example
+programs, in both BP modes, it gives the same cycle count, retirements, load-use stalls, EX and ID redirects and register writes as the
+RTL. The page is `docs/architecture_explorer.html` and also works opened straight from a clone; `docs/diagrams/make_explorer_preview.py`
+regenerates the preview from it.
+
 ## What it is
 
 | | |

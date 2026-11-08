@@ -1,0 +1,341 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1500 832" width="1500" height="832" role="img" aria-label="Animated datapath of rv32i_core: five pipeline stages, hazard, forwarding, redirect and trap logic">
+<style>
+svg{--bg:#E9EDF1;--surface:#FFFFFF;--surface2:#F3F6F8;--ink:#121B24;--muted:#556574;--line:#C3CDD7;--grid:#D3DBE3;
+ --data:#1B5FC4;--fwd:#B86200;--ctl:#6E3FC4;--trap:#C42F38;--mem:#0F7F55;--ver:#6A7B8C;
+ --if:#1B5FC4;--id:#6E3FC4;--ex:#B86200;--mem2:#0F7F55;--wb:#A0306F}
+@media (prefers-color-scheme: dark){svg{--bg:#0C1219;--surface:#131B24;--surface2:#18222D;--ink:#E1E8EF;--muted:#8D9BA9;--line:#2B3947;--grid:#1B2631;
+ --data:#5FA3FF;--fwd:#F0A63A;--ctl:#A986F5;--trap:#FF6B70;--mem:#3CCB8E;--ver:#8496A8;
+ --if:#5FA3FF;--id:#A986F5;--ex:#F0A63A;--mem2:#3CCB8E;--wb:#F07AB8}}
+.bg{fill:var(--bg)} .dot{fill:var(--grid)} .band{fill:var(--surface2);opacity:.6}
+.hd{font:700 16px 'Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;letter-spacing:.04em}
+.box{fill:var(--surface);stroke:var(--line);stroke-width:1.2} .ext .box{fill:var(--surface2);stroke-dasharray:4 3} .ver .box{stroke-dasharray:2 3}
+.nt{font:700 15px 'Arial Narrow','Roboto Condensed','Helvetica Neue',Arial,sans-serif;fill:var(--ink)}
+.ns{font:400 10.5px ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;fill:var(--muted)}
+.nl{font:400 10.5px -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;fill:var(--muted)}
+.bar{fill:var(--surface2);stroke:var(--ink);stroke-opacity:.45;stroke-width:1.2}
+.bt{font:600 11px ui-monospace,Menlo,Consolas,monospace;fill:var(--muted);letter-spacing:.08em}
+.bnd{fill:none;stroke:var(--line);stroke-dasharray:6 5;stroke-width:1.2}
+.cap{font:600 11px ui-monospace,Menlo,Consolas,monospace;fill:var(--muted);letter-spacing:.06em}
+.lg{font:400 12px -apple-system,'Segoe UI',Helvetica,Arial,sans-serif;fill:var(--muted)}
+.ln{fill:none;stroke-width:1.6}
+.t-data{stroke:var(--data)} .t-fwd{stroke:var(--fwd);stroke-width:2} .t-ctl{stroke:var(--ctl);stroke-dasharray:5 4}
+.t-trap{stroke:var(--trap);stroke-dasharray:7 3} .t-mem{stroke:var(--mem);stroke-width:2} .t-ver{stroke:var(--ver);stroke-dasharray:2 4}
+.p-data{fill:var(--data)} .p-fwd{fill:var(--fwd)} .p-ctl{fill:var(--ctl)} .p-trap{fill:var(--trap)} .p-mem{fill:var(--mem)} .p-ver{fill:var(--ver)}
+.pulse{fill:var(--data);animation:clk 1.7s steps(1,end) infinite}
+@keyframes clk{0%{opacity:0}88%{opacity:.55}100%{opacity:0}}
+@media (prefers-reduced-motion: reduce){.pulse{animation:none;opacity:0}}
+</style>
+<defs><pattern id="g" width="16" height="16" patternUnits="userSpaceOnUse"><circle class="dot" cx="1" cy="1" r=".9"/></pattern>
+<marker id="a-data" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-data"/></marker>
+<marker id="a-mem" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-mem"/></marker>
+<marker id="a-fwd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-fwd"/></marker>
+<marker id="a-ctl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-ctl"/></marker>
+<marker id="a-trap" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-trap"/></marker>
+<marker id="a-ver" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="p-ver"/></marker>
+</defs>
+<rect class="bg" width="1500" height="832"/><rect width="1500" height="790" fill="url(#g)"/>
+<rect class="band" x="10" y="12" width="236" height="668" rx="4"/>
+<rect x="10" y="12" width="236" height="4" rx="2" fill="var(--if)"/>
+<text class="hd" x="20" y="40" fill="var(--if)">IF · Fetch</text>
+<rect class="band" x="274" y="12" width="302" height="668" rx="4"/>
+<rect x="274" y="12" width="302" height="4" rx="2" fill="var(--id)"/>
+<text class="hd" x="284" y="40" fill="var(--id)">ID · Decode</text>
+<rect class="band" x="604" y="12" width="342" height="668" rx="4"/>
+<rect x="604" y="12" width="342" height="4" rx="2" fill="var(--ex)"/>
+<text class="hd" x="614" y="40" fill="var(--ex)">EX · Execute</text>
+<rect class="band" x="974" y="12" width="242" height="668" rx="4"/>
+<rect x="974" y="12" width="242" height="4" rx="2" fill="var(--mem2)"/>
+<text class="hd" x="984" y="40" fill="var(--mem2)">MEM · Memory</text>
+<rect class="band" x="1244" y="12" width="252" height="668" rx="4"/>
+<rect x="1244" y="12" width="252" height="4" rx="2" fill="var(--wb)"/>
+<text class="hd" x="1254" y="40" fill="var(--wb)">WB · Write-back</text>
+<rect class="bnd" x="6" y="72" width="1488" height="618" rx="6"/>
+<text class="cap" x="1488" y="686" text-anchor="end">rv32i_core boundary</text>
+<text class="cap" x="1488" y="788" text-anchor="end">testbench + verification (outside the core)</text>
+<path class="ln t-mem" d="M175 360 L175 706" marker-end="url(#a-mem)"><title>imem_addr = pc_f</title></path>
+<path class="ln t-mem" d="M240 742 L259 742 L259 660" marker-end="url(#a-mem)"><title>imem_rdata</title></path>
+<path class="ln t-data" d="M220 330 L250 330" marker-end="url(#a-data)"><title>pc_f → pc_d</title></path>
+<path class="ln t-data" d="M80 360 L80 400" marker-end="url(#a-data)"><title>pc_f</title></path>
+<path class="ln t-data" d="M30 422 L16 422 L16 220 L30 220" marker-end="url(#a-data)"><title>pc_f + 4</title></path>
+<path class="ln t-data" d="M125 260 L125 300" marker-end="url(#a-data)"><title>pc_n</title></path>
+<path class="ln t-data" d="M268 215 L290 215" marker-end="url(#a-data)"><title>instr_d</title></path>
+<path class="ln t-data" d="M415 280 L415 310" marker-end="url(#a-data)"><title>rs1_d, rs2_d</title></path>
+<path class="ln t-ctl" d="M290 262 L279 262 L279 500 L290 500" marker-end="url(#a-ctl)"><title>rs1_d, rs2_d, uses_rs1_d, uses_rs2_d</title></path>
+<path class="ln t-data" d="M540 215 L580 215" marker-end="url(#a-data)"><title>imm, alu_op, a_sel, b_imm, ctrl, trap_e</title></path>
+<path class="ln t-data" d="M540 360 L580 360" marker-end="url(#a-data)"><title>rs1_data_d, rs2_data_d</title></path>
+<path class="ln t-data" d="M268 615 L290 615" marker-end="url(#a-data)"><title>pc_d</title></path>
+<path class="ln t-ctl" d="M540 262 L552 262 L552 600 L540 600" marker-end="url(#a-ctl)"><title>is_jal_d, is_branch_d, imm_d</title></path>
+<path class="ln t-fwd" d="M540 492 L580 492" marker-end="url(#a-fwd)"><title>fwd_a_d, fwd_b_d (FWD_PRECOMP=1)</title></path>
+<path class="ln t-ctl" d="M540 528 L580 528" marker-end="url(#a-ctl)"><title>stall_d → bubble</title></path>
+<path class="ln t-ctl" d="M580 472 L540 472" marker-end="url(#a-ctl)"><title>rd_e, mem_read_e, reg_write_e</title></path>
+<path class="ln t-ctl" d="M350 550 L350 566 L244 566 L244 245 L220 245" marker-end="url(#a-ctl)"><title>stall_d: hold PC and IF/ID</title></path>
+<path class="ln t-ctl" d="M290 640 L236 640 L236 232 L220 232" marker-end="url(#a-ctl)"><title>redirect_id, target_id</title></path>
+<path class="ln t-data" d="M598 345 L620 345" marker-end="url(#a-data)"><title>rs1_data_e, rs2_data_e</title></path>
+<path class="ln t-data" d="M740 330 L760 330" marker-end="url(#a-data)"><title>rs1_fwd_e, rs2_fwd_e</title></path>
+<path class="ln t-data" d="M598 290 L835 290 L835 300" marker-end="url(#a-data)"><title>pc_e, imm_e</title></path>
+<path class="ln t-data" d="M835 360 L835 380" marker-end="url(#a-data)"><title>alu_a_e, alu_b_e</title></path>
+<path class="ln t-data" d="M680 420 L680 462" marker-end="url(#a-data)"><title>rs1_fwd_e, rs2_fwd_e</title></path>
+<path class="ln t-ctl" d="M760 500 L780 500" marker-end="url(#a-ctl)"><title>br_taken_e</title></path>
+<path class="ln t-data" d="M598 560 L845 560 L845 540" marker-end="url(#a-data)"><title>pc_e, imm_e</title></path>
+<path class="ln t-data" d="M880 450 L880 472" marker-end="url(#a-data)"><title>alu_y_e (JALR target)</title></path>
+<path class="ln t-ctl" d="M910 506 L928 506 L928 207 L910 207" marker-end="url(#a-ctl)"><title>target_add_e, jalr_target_e, misal_tgt_e</title></path>
+<path class="ln t-ctl" d="M598 200 L620 200" marker-end="url(#a-ctl)"><title>is_branch/jal/jalr_e, pred_taken_e, trap_e</title></path>
+<path class="ln t-data" d="M910 415 L950 415" marker-end="url(#a-data)"><title>result_e</title></path>
+<path class="ln t-data" d="M725 420 L725 455 L940 455 L940 440 L950 440" marker-end="url(#a-data)"><title>rs2_fwd_e → store_data_m</title></path>
+<path class="ln t-ctl" d="M765 165 L765 122 L125 122 L125 180" marker-end="url(#a-ctl)"><title>redirect_ex, target_ex</title></path>
+<path class="ln t-ctl" d="M690 165 L690 138 L259 138 L259 150" marker-end="url(#a-ctl)"><title>flush_if_id</title></path>
+<path class="ln t-ctl" d="M640 165 L640 146 L589 146 L589 150" marker-end="url(#a-ctl)"><title>flush_id_ex</title></path>
+<path class="ln t-trap" d="M880 165 L880 106 L1365 106 L1365 170" marker-end="url(#a-trap)"><title>trap_ex</title></path>
+<path class="ln t-trap" d="M1150 170 L1150 130 L1320 130 L1320 170" marker-end="url(#a-trap)"><title>trap_mem</title></path>
+<path class="ln t-trap" d="M1030 170 L1030 146 L959 146 L959 150" marker-end="url(#a-trap)"><title>trap_mem: squash EX</title></path>
+<path class="ln t-trap" d="M1440 170 L1440 90 L60 90 L60 180" marker-end="url(#a-trap)"><title>halted: hold PC, flush</title></path>
+<path class="ln t-data" d="M968 350 L990 350" marker-end="url(#a-data)"><title>alu_result_m[1:0], store_data_m, funct3_m</title></path>
+<path class="ln t-ctl" d="M968 210 L990 210" marker-end="url(#a-ctl)"><title>valid_m, mem_read_m, mem_write_m</title></path>
+<path class="ln t-trap" d="M1095 300 L1095 250" marker-end="url(#a-trap)"><title>misaligned_m, wstrb_m</title></path>
+<path class="ln t-mem" d="M1060 420 L1060 706" marker-end="url(#a-mem)"><title>dmem_addr, dmem_re, dmem_we[3:0], dmem_wdata</title></path>
+<path class="ln t-mem" d="M1140 706 L1140 420" marker-end="url(#a-mem)"><title>dmem_rdata</title></path>
+<path class="ln t-data" d="M1200 360 L1220 360" marker-end="url(#a-data)"><title>load_value_m</title></path>
+<path class="ln t-data" d="M968 470 L1220 470" marker-end="url(#a-data)"><title>alu_result_m, rd_m, rw_m</title></path>
+<path class="ln t-data" d="M1238 335 L1260 335" marker-end="url(#a-data)"><title>wb_data_w, rd_w, rw_w</title></path>
+<path class="ln t-data" d="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410" marker-end="url(#a-data)"><title>write port: rw_w, rd_w, wb_data_w</title></path>
+<path class="ln t-fwd" d="M1300 300 L1300 276 L705 276 L705 300" marker-end="url(#a-fwd)"><title>wb_data_w (FWD_WB)</title></path>
+<path class="ln t-fwd" d="M950 262 L660 262 L660 300" marker-end="url(#a-fwd)"><title>alu_result_m (FWD_MEM)</title></path>
+<path class="ln t-ctl" d="M959 660 L959 668 L470 668 L470 550" marker-end="url(#a-ctl)"><title>rd_m, rw_m, rd_w, rw_w</title></path>
+<path class="ln t-ver" d="M1365 370 L1365 420" marker-end="url(#a-ver)"><title>retire record</title></path>
+<path class="ln t-ver" d="M1365 500 L1365 706" marker-end="url(#a-ver)"><title>rvfi_* trace line</title></path>
+<path class="ln t-ver" d="M430 706 L430 550" marker-end="url(#a-ver)"><title>observes fwd_a/b, stall_d</title></path>
+<path class="ln t-ver" d="M690 706 L690 522" marker-end="url(#a-ver)"><title>observes redirects, traps, dmem, RVFI</title></path>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.94s" begin="-0.00s" repeatCount="indefinite" path="M175 360 L175 706"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.94s" begin="-2.47s" repeatCount="indefinite" path="M175 360 L175 706"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="1.44s" begin="-0.00s" repeatCount="indefinite" path="M240 742 L259 742 L259 660"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M220 330 L250 330"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M80 360 L80 400"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.29s" begin="-0.00s" repeatCount="indefinite" path="M30 422 L16 422 L16 220 L30 220"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M125 260 L125 300"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M268 215 L290 215"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M415 280 L415 310"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="3.71s" begin="-0.00s" repeatCount="indefinite" path="M290 262 L279 262 L279 500 L290 500"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="3.71s" begin="-1.86s" repeatCount="indefinite" path="M290 262 L279 262 L279 500 L290 500"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M540 215 L580 215"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M540 360 L580 360"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M268 615 L290 615"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="5.17s" begin="-0.00s" repeatCount="indefinite" path="M540 262 L552 262 L552 600 L540 600"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="5.17s" begin="-2.59s" repeatCount="indefinite" path="M540 262 L552 262 L552 600 L540 600"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M540 492 L580 492"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M540 528 L580 528"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M580 472 L540 472"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.67s" begin="-0.00s" repeatCount="indefinite" path="M350 550 L350 566 L244 566 L244 245 L220 245"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.67s" begin="-2.22s" repeatCount="indefinite" path="M350 550 L350 566 L244 566 L244 245 L220 245"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.67s" begin="-4.45s" repeatCount="indefinite" path="M350 550 L350 566 L244 566 L244 245 L220 245"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.83s" begin="-0.00s" repeatCount="indefinite" path="M290 640 L236 640 L236 232 L220 232"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.83s" begin="-2.28s" repeatCount="indefinite" path="M290 640 L236 640 L236 232 L220 232"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.83s" begin="-4.55s" repeatCount="indefinite" path="M290 640 L236 640 L236 232 L220 232"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M598 345 L620 345"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M740 330 L760 330"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.53s" begin="-0.00s" repeatCount="indefinite" path="M598 290 L835 290 L835 300"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M835 360 L835 380"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M680 420 L680 462"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M760 500 L780 500"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.81s" begin="-0.00s" repeatCount="indefinite" path="M598 560 L845 560 L845 540"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.81s" begin="-1.91s" repeatCount="indefinite" path="M598 560 L845 560 L845 540"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M880 450 L880 472"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="4.79s" begin="-0.00s" repeatCount="indefinite" path="M910 506 L928 506 L928 207 L910 207"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="4.79s" begin="-2.39s" repeatCount="indefinite" path="M910 506 L928 506 L928 207 L910 207"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M598 200 L620 200"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M910 415 L950 415"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.93s" begin="-0.00s" repeatCount="indefinite" path="M725 420 L725 455 L940 455 L940 440 L950 440"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.93s" begin="-1.96s" repeatCount="indefinite" path="M725 420 L725 455 L940 455 L940 440 L950 440"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="10.59s" begin="-0.00s" repeatCount="indefinite" path="M765 165 L765 122 L125 122 L125 180"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="10.59s" begin="-2.65s" repeatCount="indefinite" path="M765 165 L765 122 L125 122 L125 180"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="10.59s" begin="-5.29s" repeatCount="indefinite" path="M765 165 L765 122 L125 122 L125 180"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="10.59s" begin="-7.94s" repeatCount="indefinite" path="M765 165 L765 122 L125 122 L125 180"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.71s" begin="-0.00s" repeatCount="indefinite" path="M690 165 L690 138 L259 138 L259 150"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.71s" begin="-2.24s" repeatCount="indefinite" path="M690 165 L690 138 L259 138 L259 150"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="6.71s" begin="-4.48s" repeatCount="indefinite" path="M690 165 L690 138 L259 138 L259 150"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M640 165 L640 146 L589 146 L589 150"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="8.69s" begin="-0.00s" repeatCount="indefinite" path="M880 165 L880 106 L1365 106 L1365 170"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="8.69s" begin="-2.17s" repeatCount="indefinite" path="M880 165 L880 106 L1365 106 L1365 170"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="8.69s" begin="-4.34s" repeatCount="indefinite" path="M880 165 L880 106 L1365 106 L1365 170"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="8.69s" begin="-6.51s" repeatCount="indefinite" path="M880 165 L880 106 L1365 106 L1365 170"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="3.57s" begin="-0.00s" repeatCount="indefinite" path="M1150 170 L1150 130 L1320 130 L1320 170"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="1.41s" begin="-0.00s" repeatCount="indefinite" path="M1030 170 L1030 146 L959 146 L959 150"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-0.00s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-2.46s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-4.92s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-7.38s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-9.84s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-12.30s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-14.76s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-17.22s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="22.14s" begin="-19.68s" repeatCount="indefinite" path="M1440 170 L1440 90 L60 90 L60 180"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M968 350 L990 350"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M968 210 L990 210"/></circle>
+<circle r="3.2" class="p-trap"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M1095 300 L1095 250"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.09s" begin="-0.00s" repeatCount="indefinite" path="M1060 420 L1060 706"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.09s" begin="-2.04s" repeatCount="indefinite" path="M1060 420 L1060 706"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.09s" begin="-0.00s" repeatCount="indefinite" path="M1140 706 L1140 420"/></circle>
+<circle r="3.2" class="p-mem"><animateMotion dur="4.09s" begin="-2.04s" repeatCount="indefinite" path="M1140 706 L1140 420"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M1200 360 L1220 360"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="3.60s" begin="-0.00s" repeatCount="indefinite" path="M968 470 L1220 470"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M1238 335 L1260 335"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-0.00s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-2.51s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-5.02s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-7.53s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-10.04s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-12.55s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-15.06s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-17.57s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-data"><animateMotion dur="22.59s" begin="-20.08s" repeatCount="indefinite" path="M1470 335 L1488 335 L1488 680 L568 680 L568 410 L540 410"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="9.19s" begin="-0.00s" repeatCount="indefinite" path="M1300 300 L1300 276 L705 276 L705 300"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="9.19s" begin="-2.30s" repeatCount="indefinite" path="M1300 300 L1300 276 L705 276 L705 300"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="9.19s" begin="-4.59s" repeatCount="indefinite" path="M1300 300 L1300 276 L705 276 L705 300"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="9.19s" begin="-6.89s" repeatCount="indefinite" path="M1300 300 L1300 276 L705 276 L705 300"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="4.69s" begin="-0.00s" repeatCount="indefinite" path="M950 262 L660 262 L660 300"/></circle>
+<circle r="3.2" class="p-fwd"><animateMotion dur="4.69s" begin="-2.34s" repeatCount="indefinite" path="M950 262 L660 262 L660 300"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="8.79s" begin="-0.00s" repeatCount="indefinite" path="M959 660 L959 668 L470 668 L470 550"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="8.79s" begin="-2.20s" repeatCount="indefinite" path="M959 660 L959 668 L470 668 L470 550"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="8.79s" begin="-4.39s" repeatCount="indefinite" path="M959 660 L959 668 L470 668 L470 550"/></circle>
+<circle r="3.2" class="p-ctl"><animateMotion dur="8.79s" begin="-6.59s" repeatCount="indefinite" path="M959 660 L959 668 L470 668 L470 550"/></circle>
+<circle r="3.2" class="p-ver"><animateMotion dur="1.20s" begin="-0.00s" repeatCount="indefinite" path="M1365 370 L1365 420"/></circle>
+<circle r="3.2" class="p-ver"><animateMotion dur="2.94s" begin="-0.00s" repeatCount="indefinite" path="M1365 500 L1365 706"/></circle>
+<circle r="3.2" class="p-ver"><animateMotion dur="2.23s" begin="-0.00s" repeatCount="indefinite" path="M430 706 L430 550"/></circle>
+<circle r="3.2" class="p-ver"><animateMotion dur="2.63s" begin="-0.00s" repeatCount="indefinite" path="M690 706 L690 522"/></circle>
+<rect class="bar" x="250" y="150" width="18" height="510" rx="3"/>
+<rect class="pulse" x="250" y="150" width="18" height="510" rx="3"/>
+<text class="bt" x="263" y="405" transform="rotate(-90 263 405)" text-anchor="middle">IF/ID register</text>
+<rect class="bar" x="580" y="150" width="18" height="510" rx="3"/>
+<rect class="pulse" x="580" y="150" width="18" height="510" rx="3"/>
+<text class="bt" x="593" y="405" transform="rotate(-90 593 405)" text-anchor="middle">ID/EX register</text>
+<rect class="bar" x="950" y="150" width="18" height="510" rx="3"/>
+<rect class="pulse" x="950" y="150" width="18" height="510" rx="3"/>
+<text class="bt" x="963" y="405" transform="rotate(-90 963 405)" text-anchor="middle">EX/MEM register</text>
+<rect class="bar" x="1220" y="150" width="18" height="510" rx="3"/>
+<rect class="pulse" x="1220" y="150" width="18" height="510" rx="3"/>
+<text class="bt" x="1233" y="405" transform="rotate(-90 1233 405)" text-anchor="middle">MEM/WB register</text>
+<g class="n"><rect class="box" x="30" y="180" width="190" height="80" rx="5"/>
+<text class="nt" x="40" y="199">Next-PC select</text>
+<text class="ns" x="40" y="214">always_comb · pc_n</text>
+<text class="nl" x="40" y="228">halted › redirect_ex › stall_d</text>
+<text class="nl" x="40" y="242">› redirect_id › pc_f+4</text>
+</g>
+<g class="n"><rect class="box" x="30" y="300" width="190" height="60" rx="5"/>
+<text class="nt" x="40" y="319">PC register</text>
+<text class="ns" x="40" y="334">pc_f → imem_addr</text>
+</g>
+<g class="n"><rect class="box" x="30" y="400" width="100" height="44" rx="5"/>
+<text class="nt" x="40" y="419">+4</text>
+<text class="ns" x="40" y="434">pc_f + 4</text>
+</g>
+<g class="n ext"><rect class="box" x="20" y="706" width="220" height="70" rx="5"/>
+<text class="nt" x="30" y="725">Instruction memory</text>
+<text class="ns" x="30" y="740">tb_core mem[] · comb read</text>
+</g>
+<g class="n"><rect class="box" x="290" y="170" width="250" height="110" rx="5"/>
+<text class="nt" x="300" y="189">Decoder</text>
+<text class="ns" x="300" y="204">rv32i_decode</text>
+<text class="nl" x="300" y="218">opcode · 5 immediate formats</text>
+<text class="nl" x="300" y="232">alu_op · a_sel · b_imm · ctrl</text>
+<text class="nl" x="300" y="246">is_illegal · is_halt</text>
+</g>
+<g class="n"><rect class="box" x="290" y="310" width="250" height="120" rx="5"/>
+<text class="nt" x="300" y="329">Register file</text>
+<text class="ns" x="300" y="344">rv32i_regfile · 31 × 32</text>
+<text class="nl" x="300" y="358">2 read / 1 write · x0 reads 0</text>
+<text class="nl" x="300" y="372">write-first bypass</text>
+<text class="nl" x="300" y="386">not reset (programs init)</text>
+</g>
+<g class="n"><rect class="box" x="290" y="460" width="250" height="90" rx="5"/>
+<text class="nt" x="300" y="479">Hazard unit</text>
+<text class="ns" x="300" y="494">rv32i_hazard</text>
+<text class="nl" x="300" y="508">load-use stall_d</text>
+<text class="nl" x="300" y="522">forward selects (EX rule + ID precompute)</text>
+</g>
+<g class="n"><rect class="box" x="290" y="580" width="250" height="70" rx="5"/>
+<text class="nt" x="300" y="599">Static predictor</text>
+<text class="ns" x="300" y="614">BP_MODE=1 only</text>
+<text class="nl" x="300" y="628">JAL + backward branch → redirect_id</text>
+</g>
+<g class="n"><rect class="box" x="620" y="165" width="290" height="85" rx="5"/>
+<text class="nt" x="630" y="184">Redirect &amp; trap</text>
+<text class="ns" x="630" y="199">EX · mispredict_e · trap_ex</text>
+<text class="nl" x="630" y="213">redirect_ex: mispredict · JALR · JAL (BP0)</text>
+<text class="nl" x="630" y="227">trap_ex → flush_if_id, flush_id_ex</text>
+</g>
+<g class="n"><rect class="box" x="620" y="300" width="120" height="120" rx="5"/>
+<text class="nt" x="630" y="319">Forward mux</text>
+<text class="ns" x="630" y="334">fwd_a · fwd_b</text>
+<text class="nl" x="630" y="348">MEM › WB › ID/EX</text>
+</g>
+<g class="n"><rect class="box" x="760" y="300" width="150" height="60" rx="5"/>
+<text class="nt" x="770" y="319">Operand select</text>
+<text class="ns" x="770" y="334">a_sel · b_imm</text>
+</g>
+<g class="n"><rect class="box" x="760" y="380" width="150" height="70" rx="5"/>
+<text class="nt" x="770" y="399">ALU</text>
+<text class="ns" x="770" y="414">rv32i_alu · 10 ops</text>
+<text class="nl" x="770" y="428">result_e = jump ? pc+4 : y</text>
+</g>
+<g class="n"><rect class="box" x="620" y="462" width="140" height="60" rx="5"/>
+<text class="nt" x="630" y="481">Branch compare</text>
+<text class="ns" x="630" y="496">rv32i_branch</text>
+</g>
+<g class="n"><rect class="box" x="780" y="472" width="130" height="68" rx="5"/>
+<text class="nt" x="790" y="491">Targets</text>
+<text class="ns" x="790" y="506">pc+imm · JALR</text>
+<text class="nl" x="790" y="520">misal_tgt_e</text>
+</g>
+<g class="n"><rect class="box" x="990" y="170" width="210" height="80" rx="5"/>
+<text class="nt" x="1000" y="189">Access control</text>
+<text class="ns" x="1000" y="204">trap_mem · dmem_re / dmem_we</text>
+<text class="nl" x="1000" y="218">misaligned → suppress + trap</text>
+</g>
+<g class="n"><rect class="box" x="990" y="300" width="210" height="120" rx="5"/>
+<text class="nt" x="1000" y="319">Load/store unit</text>
+<text class="ns" x="1000" y="334">rv32i_lsu</text>
+<text class="nl" x="1000" y="348">byte strobes · lane replication</text>
+<text class="nl" x="1000" y="362">load lane select · sign/zero extend</text>
+<text class="nl" x="1000" y="376">misaligned detect</text>
+</g>
+<g class="n ext"><rect class="box" x="980" y="706" width="230" height="70" rx="5"/>
+<text class="nt" x="990" y="725">Data memory</text>
+<text class="ns" x="990" y="740">tb_core mem[] · strobed write</text>
+</g>
+<g class="n"><rect class="box" x="1260" y="170" width="210" height="70" rx="5"/>
+<text class="nt" x="1270" y="189">Halt state</text>
+<text class="ns" x="1270" y="204">halted (sticky flop)</text>
+<text class="nl" x="1270" y="218">holds PC · flushes forever</text>
+</g>
+<g class="n"><rect class="box" x="1260" y="300" width="210" height="70" rx="5"/>
+<text class="nt" x="1270" y="319">Write-back</text>
+<text class="ns" x="1270" y="334">load_value | alu_result</text>
+</g>
+<g class="n ver"><rect class="box" x="1260" y="420" width="210" height="80" rx="5"/>
+<text class="nt" x="1270" y="439">RVFI trace port</text>
+<text class="ns" x="1270" y="454">RVFI_EN=1 only</text>
+<text class="nl" x="1270" y="468">retire record + rvfi_order</text>
+<text class="nl" x="1270" y="482">removed for synthesis</text>
+</g>
+<g class="n ext ver"><rect class="box" x="290" y="706" width="640" height="70" rx="5"/>
+<text class="nt" x="300" y="725">rv32i_checker (bind)</text>
+<text class="ns" x="300" y="740">verif/rv32i_checker.sv · 48 assertions · 143 cover bins</text>
+<text class="nl" x="300" y="754">observes forwarding selects, stall, redirects, traps, halted, dmem strobes and RVFI; every assertion is written in both directions</text>
+</g>
+<g class="n ext ver"><rect class="box" x="1260" y="706" width="210" height="70" rx="5"/>
+<text class="nt" x="1270" y="725">Lock-step vs ISS</text>
+<text class="ns" x="1270" y="740">rviss.py · compare_trace.py</text>
+</g>
+<path class="ln t-data" d="M16 814 L42 814" marker-end="url(#a-data)"/>
+<text class="lg" x="50" y="818">Combinational datapath</text>
+<path class="ln t-mem" d="M205 814 L231 814" marker-end="url(#a-mem)"/>
+<text class="lg" x="239" y="818">Memory port</text>
+<path class="ln t-fwd" d="M321 814 L347 814" marker-end="url(#a-fwd)"/>
+<text class="lg" x="355" y="818">Forwarding / bypass</text>
+<path class="ln t-ctl" d="M490 814 L516 814" marker-end="url(#a-ctl)"/>
+<text class="lg" x="524" y="818">Control &amp; hazard</text>
+<path class="ln t-trap" d="M639 814 L665 814" marker-end="url(#a-trap)"/>
+<text class="lg" x="673" y="818">Trap / halt</text>
+<path class="ln t-ver" d="M755 814 L781 814" marker-end="url(#a-ver)"/>
+<text class="lg" x="789" y="818">Verification only</text>
+<text class="lg" x="1488" y="818" text-anchor="end">Open the interactive explorer to run programs through the pipeline</text>
+</svg>
